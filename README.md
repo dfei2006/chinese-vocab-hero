@@ -6,14 +6,16 @@ The app starts with a worksheet photo, extracts the numbered Chinese words and p
 
 ## Why These Providers
 
-The voice is the hardest part, so this app uses **Azure Speech** for text-to-speech. Azure supports SSML phoneme hints for `zh-CN` using pinyin tone numbers like `chang 2` and `zhang 3`, which is exactly what we need for homophones such as 长.
+The voice is the hardest part. The app supports **Azure Speech** and **火山引擎 / 豆包 TTS** for text-to-speech.
+
+Azure Speech is still the tone-control winner because it supports SSML phoneme hints for `zh-CN` using pinyin tone numbers like `chang 2` and `zhang 3`, which is exactly what we need for homophones such as 长. 火山/豆包 can be a practical alternative if Azure setup is blocked, but this implementation does not have a confirmed pinyin phoneme-hint path for 火山, so heteronym control depends more on sentence context.
 
 Anthropic handles the parts where language understanding matters: reading the worksheet photo and generating the silly sentence. If you also add an OpenAI API key, the app can use OpenAI for server-side speech transcription; otherwise it uses the browser's built-in Chinese speech recognition.
 
 For the full photo-to-practice flow, you need:
 
 - One Anthropic API key
-- One Azure Speech key, plus the Azure region printed next to that key
+- One TTS provider: Azure Speech, or 火山引擎 / 豆包 TTS
 
 No Google Cloud project, no custom search engine, no image API, no browser scraping.
 
@@ -57,7 +59,9 @@ OpenAI is only used for server-side speech transcription. Without it, the app us
 
 Your ChatGPT/OAuth login is not the same thing as an API key. If you do not have an OpenAI API key, leave `OPENAI_API_KEY` blank.
 
-### 4. Get an Azure Speech key
+### 4. Choose a TTS Provider
+
+#### Option A: Azure Speech
 
 1. Go to [Azure AI Speech](https://portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices).
 2. Create a Speech resource.
@@ -67,6 +71,17 @@ Your ChatGPT/OAuth login is not the same thing as an API key. If you do not have
 6. Copy the **Location/Region** value, such as `eastus`.
 
 Use a Speech resource, not the old Edge browser TTS workaround.
+
+#### Option B: 火山引擎 / 豆包 TTS
+
+1. Go to the 火山引擎控制台.
+2. Open the speech/语音合成 product.
+3. Create or open an app.
+4. Copy the app's **AppID**.
+5. Copy the app's **Access Token**.
+6. Find the **cluster** and **voice_type** shown in the TTS API examples.
+
+The common cluster is `volcano_tts`. Voice names vary by account and product version, so use a voice type shown in your console if the default below fails.
 
 ### 5. Create your `.env` file
 
@@ -90,13 +105,35 @@ AZURE_SPEECH_KEY=your-azure-speech-key
 AZURE_SPEECH_REGION=eastus
 AZURE_SPEECH_VOICE=zh-CN-XiaoxiaoMultilingualNeural
 
+TTS_PROVIDER=
+VOLCENGINE_TTS_APP_ID=
+VOLCENGINE_TTS_ACCESS_TOKEN=
+VOLCENGINE_TTS_CLUSTER=volcano_tts
+VOLCENGINE_TTS_VOICE_TYPE=zh_female_wanqudashu_moon_bigtts
+
 HTTPS_PROXY=
 NO_PROXY=localhost,127.0.0.1
 
 PORT=4173
 ```
 
-The default Azure voice is a natural Mandarin neural voice. You can swap it for another `zh-CN` neural voice later, but start here first.
+To force 火山 instead of Azure:
+
+```bash
+TTS_PROVIDER=volcengine
+VOLCENGINE_TTS_APP_ID=your_app_id
+VOLCENGINE_TTS_ACCESS_TOKEN=your_access_token
+VOLCENGINE_TTS_CLUSTER=volcano_tts
+VOLCENGINE_TTS_VOICE_TYPE=your_voice_type
+```
+
+To force Azure:
+
+```bash
+TTS_PROVIDER=azure
+```
+
+If `TTS_PROVIDER` is blank, the app tries 火山 first when 火山 credentials are present, otherwise Azure.
 
 ### 6. Run the app
 
@@ -128,13 +165,15 @@ Browsers usually allow the microphone on `localhost`. On a phone, you may need t
 
 ## Notes On Tone Accuracy
 
-The app sends pinyin hints to Azure Speech as SSML phonemes for the target vocabulary word. For example:
+With Azure, the app sends pinyin hints as SSML phonemes for the target vocabulary word. For example:
 
 ```xml
 <phoneme alphabet="sapi" ph="chang 2">长</phoneme>
 ```
 
-For full sentences, the app wraps the target word with that hint and lets the surrounding Chinese sentence provide natural context.
+For full sentences on Azure, the app wraps the target word with that hint and lets the surrounding Chinese sentence provide natural context.
+
+With 火山/豆包, the app currently sends plain Chinese text. It may sound natural, but exact single-character heteronym control is weaker than Azure because this implementation does not pass pinyin as a phoneme hint.
 
 The speech matching is intentionally forgiving. It checks whether the transcription contains the expected Chinese word, with a little wiggle room for multi-character words. It is meant to keep practice moving, not grade a child like a formal pronunciation exam.
 
@@ -163,9 +202,10 @@ If pronunciation checking says your browser cannot listen:
 
 If audio fails:
 
-- Check `AZURE_SPEECH_KEY`.
-- Check `AZURE_SPEECH_REGION`.
-- Make sure the region is the short value such as `eastus`, not a full endpoint URL.
+- Check `TTS_PROVIDER`.
+- For Azure, check `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`.
+- For 火山, check `VOLCENGINE_TTS_APP_ID`, `VOLCENGINE_TTS_ACCESS_TOKEN`, `VOLCENGINE_TTS_CLUSTER`, and `VOLCENGINE_TTS_VOICE_TYPE`.
+- If 火山 says the voice is invalid, copy a voice type from your 火山 console examples.
 
 If recording fails:
 
@@ -188,3 +228,4 @@ NODE_ENV=development npm start
 - [OpenAI speech-to-text guide](https://platform.openai.com/docs/guides/speech-to-text)
 - [Azure Speech text-to-speech REST API](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech)
 - [Azure Speech phonetic alphabets](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-ssml-phonetic-sets)
+- [火山引擎语音合成文档](https://www.volcengine.com/docs/6561)
