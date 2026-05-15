@@ -7,14 +7,88 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main class="shell">
-      <section class="hero-panel">
-        <p class="eyebrow">Chinese Vocab Hero</p>
-        <h1>Turn a worksheet photo into a speaking practice game.</h1>
-        <p class="lede">Upload a numbered vocabulary list, review the extracted words, and let the kid drill with hero-powered sentences.</p>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Chinese Vocab Hero</p>
+          <h1>中文英雄练习</h1>
+        </div>
+        <button class="icon-button" id="resetButton" type="button" title="Reset saved practice" aria-label="Reset saved practice">↻</button>
+      </header>
+
+      <section class="status-strip" id="statusStrip" aria-live="polite"></section>
+
+      <section class="view active" id="uploadView" aria-labelledby="uploadTitle">
+        <div class="upload-zone">
+          <div class="upload-art" aria-hidden="true">
+            <span>超</span>
+            <span>蜘</span>
+            <span>哪</span>
+            <span>皮</span>
+          </div>
+          <h2 id="uploadTitle">拍一张词语表</h2>
+          <p>编号词语 + 拼音，清楚一点就行。</p>
+          <label class="primary-action">
+            <input id="photoInput" type="file" accept="image/*" capture="environment">
+            上传照片
+          </label>
+        </div>
+      </section>
+
+      <section class="view" id="reviewView" aria-labelledby="reviewTitle">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Parent Check</p>
+            <h2 id="reviewTitle">确认词语和拼音</h2>
+          </div>
+          <button class="secondary-action" id="addWordButton" type="button">加一行</button>
+        </div>
+        <div class="word-list" id="wordList"></div>
+        <button class="primary-action full" id="startButton" type="button">开始练习</button>
+      </section>
+
+      <section class="view" id="practiceView" aria-labelledby="practiceTitle">
+        <div class="practice-top">
+          <div>
+            <p class="eyebrow" id="progressLabel">1 / 1</p>
+            <h2 id="practiceTitle">读这个词</h2>
+          </div>
+          <div class="score-pill" id="scorePill">0 ✓</div>
+        </div>
+
+        <div class="word-stage">
+          <div class="character" id="currentWord">字</div>
+          <div class="pinyin" id="currentPinyin">zi4</div>
+        </div>
+
+        <div class="hero-picker" id="heroPicker" aria-label="Hero picker"></div>
+
+        <div class="practice-actions">
+          <button class="secondary-action" id="listenWordButton" type="button">听一遍</button>
+          <button class="record-action" id="recordButton" type="button">按下录音</button>
+        </div>
+
+        <div class="feedback" id="feedbackBox" aria-live="polite"></div>
+
+        <article class="sentence-panel hidden" id="sentencePanel">
+          <div class="sentence-hero" id="sentenceHero"></div>
+          <p class="sentence-cn" id="sentenceText"></p>
+          <p class="sentence-pinyin" id="sentencePinyin"></p>
+          <button class="secondary-action" id="replaySentenceButton" type="button">再听一遍</button>
+        </article>
+
+        <button class="primary-action full hidden" id="nextButton" type="button">下一个</button>
+      </section>
+
+      <section class="view" id="doneView" aria-labelledby="doneTitle">
+        <div class="done-panel">
+          <p class="eyebrow">Finished</p>
+          <h2 id="doneTitle">今天练完了！</h2>
+          <p id="doneStats"></p>
+          <button class="primary-action full" id="againButton" type="button">再练一次</button>
+        </div>
       </section>
     </main>
     <script src="/app.js" type="module"></script>
   </body>
 </html>
-
