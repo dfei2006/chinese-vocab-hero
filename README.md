@@ -77,11 +77,12 @@ Use a Speech resource, not the old Edge browser TTS workaround.
 1. Go to the 火山引擎控制台.
 2. Open the speech/语音合成 product.
 3. Create or open an app.
-4. Copy the app's **AppID**.
-5. Copy the app's **Access Token**.
-6. Find the **cluster** and **voice_type** shown in the TTS API examples.
+4. Copy the app's **APP ID**.
+5. In the left sidebar, open **API访问密钥** and create/copy an **API Key**.
+6. Use the resource ID for the model, usually `seed-tts-2.0`.
+7. Find the **voice_type** / **speaker** shown in the TTS API examples.
 
-The common cluster is `volcano_tts`. Voice names vary by account and product version, so use a voice type shown in your console if the default below fails.
+The newer console uses API Key access. The old console used Access Token. The app supports both, but the API Key path is the one to use on the screen you showed.
 
 ### 5. Create your `.env` file
 
@@ -107,6 +108,8 @@ AZURE_SPEECH_VOICE=zh-CN-XiaoxiaoMultilingualNeural
 
 TTS_PROVIDER=
 VOLCENGINE_TTS_APP_ID=
+VOLCENGINE_TTS_ACCESS_KEY=
+VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
 VOLCENGINE_TTS_ACCESS_TOKEN=
 VOLCENGINE_TTS_CLUSTER=volcano_tts
 VOLCENGINE_TTS_VOICE_TYPE=zh_female_wanqudashu_moon_bigtts
@@ -122,8 +125,8 @@ To force 火山 instead of Azure:
 ```bash
 TTS_PROVIDER=volcengine
 VOLCENGINE_TTS_APP_ID=your_app_id
-VOLCENGINE_TTS_ACCESS_TOKEN=your_access_token
-VOLCENGINE_TTS_CLUSTER=volcano_tts
+VOLCENGINE_TTS_ACCESS_KEY=your_api_key
+VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
 VOLCENGINE_TTS_VOICE_TYPE=your_voice_type
 ```
 

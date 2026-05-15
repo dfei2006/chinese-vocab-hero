@@ -430,7 +430,7 @@ function buildSsml({ text, word, pinyin, mode }) {
 function preferredTtsProvider() {
   const requested = (process.env.TTS_PROVIDER || "").toLowerCase();
   if (requested) return requested;
-  if (process.env.VOLCENGINE_TTS_APP_ID && process.env.VOLCENGINE_TTS_ACCESS_TOKEN) return "volcengine";
+  if (process.env.VOLCENGINE_TTS_APP_ID && (process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY || process.env.VOLCENGINE_TTS_ACCESS_TOKEN)) return "volcengine";
   if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION) return "azure";
   return "none";
 }
@@ -473,6 +473,9 @@ async function synthesizeWithAzure({ text, word, pinyin, mode }) {
 
 async function synthesizeWithVolcengine({ text }) {
   const appId = requireEnv("VOLCENGINE_TTS_APP_ID");
+  const accessKey = process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY;
+  if (accessKey) return synthesizeWithVolcengineV3({ text, appId, accessKey });
+
   const token = requireEnv("VOLCENGINE_TTS_ACCESS_TOKEN");
   const cluster = process.env.VOLCENGINE_TTS_CLUSTER || "volcano_tts";
   const endpoint = process.env.VOLCENGINE_TTS_ENDPOINT || "https://openspeech.bytedance.com/api/v1/tts";
@@ -529,6 +532,83 @@ async function synthesizeWithVolcengine({ text }) {
 
   return {
     audio: Buffer.from(responseJson.data, "base64"),
+    contentType: "audio/mpeg"
+  };
+}
+
+function parseVolcengineV3Audio(text) {
+  const chunks = [];
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (const line of lines) {
+    const jsonText = line.startsWith("data:") ? line.slice(5).trim() : line;
+    if (!jsonText || jsonText === "[DONE]") continue;
+    try {
+      const event = JSON.parse(jsonText);
+      const base64 = event.data || event.audio || event.result?.audio || event.result?.data;
+      if (base64) chunks.push(Buffer.from(base64, "base64"));
+      const message = event.message || event.error?.message || event.BaseResp?.StatusMessage;
+      const code = event.code ?? event.BaseResp?.StatusCode;
+      if (!base64 && code && code !== 0 && code !== 3000) {
+        throw new UserError(message || `Volcengine TTS failed with code ${code}.`, 400);
+      }
+    } catch (error) {
+      if (error instanceof UserError) throw error;
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
+async function synthesizeWithVolcengineV3({ text, appId, accessKey }) {
+  const resourceId = process.env.VOLCENGINE_TTS_RESOURCE_ID || "seed-tts-2.0";
+  const endpoint = process.env.VOLCENGINE_TTS_V3_ENDPOINT || "https://openspeech.bytedance.com/api/v3/tts/unidirectional";
+  const requestId = crypto.randomUUID();
+  const payload = {
+    req_params: {
+      text,
+      speaker: volcengineVoice,
+      audio_params: {
+        format: "mp3",
+        sample_rate: 24000
+      }
+    }
+  };
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "X-Api-App-Id": appId,
+        "X-Api-Access-Key": accessKey,
+        "X-Api-Resource-Id": resourceId,
+        "X-Api-Request-Id": requestId,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch {
+    throw new UserError("Cannot reach Volcengine TTS V3 from this network. Check your connection, VPN, or VOLCENGINE_TTS settings.", 502);
+  }
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    let message = responseText;
+    try {
+      const parsed = JSON.parse(responseText);
+      message = parsed.message || parsed.error?.message || parsed.BaseResp?.StatusMessage || message;
+    } catch {
+      // Keep the raw message.
+    }
+    throw new UserError(message || "Volcengine TTS V3 request failed.", response.status);
+  }
+
+  const audio = parseVolcengineV3Audio(responseText);
+  if (!audio.length) {
+    throw new UserError("Volcengine TTS V3 returned no audio. Check VOLCENGINE_TTS_RESOURCE_ID and VOLCENGINE_TTS_VOICE_TYPE.", 502);
+  }
+
+  return {
+    audio,
     contentType: "audio/mpeg"
   };
 }
@@ -597,7 +677,7 @@ async function handleApi(req, res) {
       languageProvider: preferredLanguageProvider(),
       azureConfigured: Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION),
       azureVoice,
-      volcengineConfigured: Boolean(process.env.VOLCENGINE_TTS_APP_ID && process.env.VOLCENGINE_TTS_ACCESS_TOKEN),
+      volcengineConfigured: Boolean(process.env.VOLCENGINE_TTS_APP_ID && (process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY || process.env.VOLCENGINE_TTS_ACCESS_TOKEN)),
       volcengineVoice,
       ttsProvider: preferredTtsProvider()
     });
