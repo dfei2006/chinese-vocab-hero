@@ -130,7 +130,16 @@ function extractAnthropicText(responseJson) {
     .join("\n");
 }
 
-async function callAnthropicMessages(payload) {
+function extractAnthropicToolInput(responseJson) {
+  for (const part of responseJson.content || []) {
+    if (part.type === "tool_use" && part.name === "return_json" && part.input) {
+      return part.input;
+    }
+  }
+  return null;
+}
+
+async function callAnthropicMessages(payload, { parseJson = true } = {}) {
   const apiKey = requireEnv("ANTHROPIC_API_KEY");
   let response;
   try {
@@ -152,7 +161,15 @@ async function callAnthropicMessages(payload) {
     throw new UserError(responseJson.error?.message || "Anthropic request failed.", response.status);
   }
 
-  return parseJsonText(extractAnthropicText(responseJson));
+  const toolInput = extractAnthropicToolInput(responseJson);
+  if (toolInput) return toolInput;
+  if (!parseJson) return responseJson;
+
+  try {
+    return parseJsonText(extractAnthropicText(responseJson));
+  } catch {
+    throw new UserError("Anthropic returned an unreadable worksheet result. Try a clearer photo or use manual entry.", 502);
+  }
 }
 
 function preferredLanguageProvider() {
@@ -161,7 +178,7 @@ function preferredLanguageProvider() {
   return "local";
 }
 
-async function callLanguageJson({ prompt, imageDataUrl, maxTokens = 1200 }) {
+async function callLanguageJson({ prompt, imageDataUrl, maxTokens = 1200, schema }) {
   const provider = preferredLanguageProvider();
 
   if (provider === "anthropic") {
@@ -179,11 +196,22 @@ async function callLanguageJson({ prompt, imageDataUrl, maxTokens = 1200 }) {
       });
     }
     content.push({ type: "text", text: prompt });
-    return callAnthropicMessages({
+    const payload = {
       model: anthropicModel,
       max_tokens: maxTokens,
       messages: [{ role: "user", content }]
-    });
+    };
+    if (schema) {
+      payload.tools = [
+        {
+          name: "return_json",
+          description: "Return the requested structured result.",
+          input_schema: schema
+        }
+      ];
+      payload.tool_choice = { type: "tool", name: "return_json" };
+    }
+    return callAnthropicMessages(payload);
   }
 
   if (provider === "openai") {
@@ -228,7 +256,34 @@ Rules:
 - Do not include translations, explanations, markdown, or commentary.
 `.trim();
 
-  const result = await callLanguageJson({ prompt, imageDataUrl });
+  const ocrSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            number: { type: "integer" },
+            word: { type: "string" },
+            pinyin: { type: "string" },
+            displayPinyin: { type: "string" }
+          },
+          required: ["number", "word", "pinyin", "displayPinyin"]
+        }
+      }
+    },
+    required: ["items"]
+  };
+
+  const result = await callLanguageJson({
+    prompt,
+    imageDataUrl,
+    maxTokens: 4000,
+    schema: ocrSchema
+  });
 
   const items = Array.isArray(result.items) ? result.items : [];
   sendJson(res, 200, {
@@ -267,13 +322,28 @@ Return only JSON with this shape:
 
 Rules:
 - The sentence must be natural Mandarin Chinese and must contain the exact vocabulary word.
+- The vocabulary word must use exactly this pronunciation: ${pinyin}.
+- For heteronyms, choose the meaning that matches the supplied pinyin and avoid contexts that force another reading.
+- Example: if the word is 长 and the pinyin is chang2, use it to mean "long" and do not write 长得, 成长, or 校长.
 - Keep it under 18 Chinese characters when possible.
 - Make it playful, never mean or scary.
 - Use the vocabulary reading implied by the pinyin.
-- Pinyin must match the sentence.
+- Pinyin must match the sentence and must show the target word with the supplied tone.
 `.trim();
 
-  const result = await callLanguageJson({ prompt, maxTokens: 700 });
+  const sentenceSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      hero: { type: "string" },
+      sentence: { type: "string" },
+      pinyin: { type: "string" },
+      english: { type: "string" }
+    },
+    required: ["hero", "sentence", "pinyin", "english"]
+  };
+
+  const result = await callLanguageJson({ prompt, maxTokens: 700, schema: sentenceSchema });
 
   sendJson(res, 200, {
     hero: chosenHero,
