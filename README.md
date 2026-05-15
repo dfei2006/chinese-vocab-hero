@@ -90,6 +90,9 @@ AZURE_SPEECH_KEY=your-azure-speech-key
 AZURE_SPEECH_REGION=eastus
 AZURE_SPEECH_VOICE=zh-CN-XiaoxiaoMultilingualNeural
 
+HTTPS_PROXY=
+NO_PROXY=localhost,127.0.0.1
+
 PORT=4173
 ```
 
@@ -143,6 +146,14 @@ If worksheet upload fails:
 - If you do not want to use an OCR provider, use **手动输入** instead.
 - Make sure the photo is readable and not too dark.
 - Try again with the list filling more of the picture.
+
+If you see `Cannot reach Anthropic from this network` while your VPN is on:
+
+- Your browser may be using the VPN, but Node may not be.
+- Open your VPN app and look for an HTTP proxy, mixed proxy, or local proxy address.
+- Put that address in `.env` as `HTTPS_PROXY`.
+- Common examples are `HTTPS_PROXY=http://127.0.0.1:7890`, `HTTPS_PROXY=http://127.0.0.1:6152`, or `HTTPS_PROXY=http://127.0.0.1:8080`.
+- Restart with `npm start` after editing `.env`.
 
 If pronunciation checking says your browser cannot listen:
 
