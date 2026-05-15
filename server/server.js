@@ -101,18 +101,23 @@ function parseJsonText(text) {
 
 async function callOpenAiResponses(payload) {
   const apiKey = requireEnv("OPENAI_API_KEY");
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch {
+    throw new UserError("Cannot reach OpenAI from this network. Check your connection or VPN.", 502);
+  }
 
   const responseJson = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(responseJson.error?.message || "OpenAI request failed.");
+    throw new UserError(responseJson.error?.message || "OpenAI request failed.", response.status);
   }
 
   return parseJsonText(extractOutputText(responseJson));
@@ -127,19 +132,24 @@ function extractAnthropicText(responseJson) {
 
 async function callAnthropicMessages(payload) {
   const apiKey = requireEnv("ANTHROPIC_API_KEY");
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch {
+    throw new UserError("Cannot reach Anthropic from this network. Check your connection or VPN, or use manual entry.", 502);
+  }
 
   const responseJson = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(responseJson.error?.message || "Anthropic request failed.");
+    throw new UserError(responseJson.error?.message || "Anthropic request failed.", response.status);
   }
 
   return parseJsonText(extractAnthropicText(responseJson));
@@ -355,20 +365,25 @@ async function handleTts(req, res) {
   const endpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
   const ssml = buildSsml({ text, word, pinyin, mode });
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Ocp-Apim-Subscription-Key": key,
-      "Content-Type": "application/ssml+xml",
-      "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
-      "User-Agent": "ChineseVocabHero"
-    },
-    body: ssml
-  });
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": key,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+        "User-Agent": "ChineseVocabHero"
+      },
+      body: ssml
+    });
+  } catch {
+    throw new UserError("Cannot reach Azure Speech from this network. Check your connection, VPN, region, or Speech key.", 502);
+  }
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");
-    throw new Error(details || "Azure Speech request failed.");
+    throw new UserError(details || "Azure Speech request failed.", response.status);
   }
 
   const audio = Buffer.from(await response.arrayBuffer());
@@ -393,15 +408,20 @@ async function handleTranscribe(req, res) {
   form.set("prompt", "A child is reading one Mandarin Chinese vocabulary word or short phrase. Return the Chinese characters only.");
   form.set("file", new Blob([audioBuffer], { type: mimeType }), `recording.${mimeType.includes("mp4") ? "mp4" : "webm"}`);
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: { authorization: `Bearer ${apiKey}` },
-    body: form
-  });
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}` },
+      body: form
+    });
+  } catch {
+    throw new UserError("Cannot reach OpenAI transcription from this network. Use browser speech recognition or check your connection.", 502);
+  }
 
   const responseJson = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(responseJson.error?.message || "OpenAI transcription failed.");
+    throw new UserError(responseJson.error?.message || "OpenAI transcription failed.", response.status);
   }
 
   sendJson(res, 200, { text: String(responseJson.text || "").trim() });

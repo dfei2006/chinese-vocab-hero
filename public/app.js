@@ -466,13 +466,20 @@ async function handleTranscript(item, text) {
 async function revealSentence(item) {
   if (!item.sentence) {
     setStatus("正在召唤英雄句子...");
-    item.sentence = capabilities.languageProvider !== "local"
-      ? await apiJson("/api/sentence", {
+    if (capabilities.languageProvider !== "local") {
+      try {
+        item.sentence = await apiJson("/api/sentence", {
           word: item.word,
           pinyin: item.pinyin,
           hero: selectedHero
-        })
-      : makeLocalSentence(item);
+        });
+      } catch (error) {
+        item.sentence = makeLocalSentence(item);
+        setStatus(`${error.message} 已改用本地句子。`);
+      }
+    } else {
+      item.sentence = makeLocalSentence(item);
+    }
     saveState();
     renderPractice();
   }
