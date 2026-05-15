@@ -36,6 +36,10 @@ let selectedHero = state.selectedHero || heroes[0];
 let activeAudioUrl = null;
 let mediaRecorder = null;
 let recordingChunks = [];
+let capabilities = {
+  openAiConfigured: false,
+  azureConfigured: false
+};
 
 function freshState() {
   return {
@@ -87,6 +91,15 @@ async function apiJson(path, payload) {
   return json;
 }
 
+async function refreshCapabilities() {
+  try {
+    const response = await fetch("/api/health");
+    if (response.ok) capabilities = await response.json();
+  } catch {
+    capabilities = { openAiConfigured: false, azureConfigured: false };
+  }
+}
+
 async function imageFileToDataUrl(file) {
   const rawDataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -114,6 +127,9 @@ async function handlePhotoChange(event) {
   if (!file) return;
 
   try {
+    if (!capabilities.openAiConfigured) {
+      throw new Error("照片识别需要 OpenAI API key。现在可以先点“手动输入”。");
+    }
     setStatus("正在读照片...");
     const imageDataUrl = await imageFileToDataUrl(file);
     const result = await apiJson("/api/ocr", { imageDataUrl });
@@ -329,6 +345,11 @@ async function blobToDataUrl(blob) {
 }
 
 async function recordPronunciation() {
+  if (!capabilities.openAiConfigured) {
+    await recordWithBrowserSpeech();
+    return;
+  }
+
   if (mediaRecorder?.state === "recording") {
     mediaRecorder.stop();
     return;
@@ -368,31 +389,120 @@ async function handleRecordingBlob(blob) {
     setStatus("正在判断...");
     const audioDataUrl = await blobToDataUrl(blob);
     const { text } = await apiJson("/api/transcribe", { audioDataUrl });
-    const ok = fuzzyMatches(item.word, text);
-    item.lastResult = { ok, transcript: text };
-    item.completed = true;
-    state.attempts += 1;
-    if (ok) state.correct += 1;
-    renderPractice();
-    await revealSentence(item);
+    await handleTranscript(item, text);
     setStatus("");
   } catch (error) {
     setStatus(error.message);
   }
 }
 
+async function recordWithBrowserSpeech() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    setStatus("这个浏览器没有中文语音识别。可以用 Chrome/Safari，或加 OpenAI API key。");
+    return;
+  }
+
+  const item = getCurrentItem();
+  const recognition = new SpeechRecognition();
+  recognition.lang = "zh-CN";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 3;
+
+  els.recordButton.classList.add("recording");
+  els.recordButton.textContent = "正在听";
+  setStatus("浏览器正在听...");
+
+  await new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    recognition.addEventListener("result", async (event) => {
+      const transcript = Array.from(event.results)
+        .flatMap((result) => Array.from(result))
+        .map((alternative) => alternative.transcript)
+        .join(" ");
+      try {
+        await handleTranscript(item, transcript);
+      } catch (error) {
+        setStatus(error.message);
+      }
+      finish();
+    });
+    recognition.addEventListener("error", (event) => {
+      setStatus(event.error === "not-allowed" ? "麦克风没有打开。" : "没有听清，再试一次。");
+      finish();
+    });
+    recognition.addEventListener("end", () => {
+      els.recordButton.classList.remove("recording");
+      els.recordButton.textContent = "按下录音";
+      finish();
+    });
+    recognition.start();
+  });
+}
+
+async function handleTranscript(item, text) {
+  const ok = fuzzyMatches(item.word, text);
+  item.lastResult = { ok, transcript: text };
+  item.completed = true;
+  state.attempts += 1;
+  if (ok) state.correct += 1;
+  renderPractice();
+  await revealSentence(item);
+}
+
 async function revealSentence(item) {
   if (!item.sentence) {
     setStatus("正在召唤英雄句子...");
-    item.sentence = await apiJson("/api/sentence", {
-      word: item.word,
-      pinyin: item.pinyin,
-      hero: selectedHero
-    });
+    item.sentence = capabilities.openAiConfigured
+      ? await apiJson("/api/sentence", {
+          word: item.word,
+          pinyin: item.pinyin,
+          hero: selectedHero
+        })
+      : makeLocalSentence(item);
     saveState();
     renderPractice();
   }
   await playSentence(item);
+}
+
+function makeLocalSentence(item) {
+  const hero = selectedHero;
+  const displayPinyin = item.displayPinyin || item.pinyin;
+  const templates = {
+    Superman: {
+      sentence: `超人举起${item.word}飞走了。`,
+      pinyin: `Chāo rén jǔ qǐ ${displayPinyin} fēi zǒu le.`,
+      english: `Superman lifted ${item.word} and flew away.`
+    },
+    "Spider-Man": {
+      sentence: `蜘蛛侠用${item.word}荡秋千。`,
+      pinyin: `Zhī zhū xiá yòng ${displayPinyin} dàng qiū qiān.`,
+      english: `Spider-Man used ${item.word} as a swing.`
+    },
+    Transformers: {
+      sentence: `变形金刚把${item.word}变大了。`,
+      pinyin: `Biàn xíng jīn gāng bǎ ${displayPinyin} biàn dà le.`,
+      english: `The Transformer made ${item.word} huge.`
+    },
+    Nezha: {
+      sentence: `哪吒踩着${item.word}转圈。`,
+      pinyin: `Né zhā cǎi zhe ${displayPinyin} zhuàn quān.`,
+      english: `Nezha spun around on ${item.word}.`
+    },
+    Pikachu: {
+      sentence: `皮卡丘抱着${item.word}跳舞。`,
+      pinyin: `Pí kǎ qiū bào zhe ${displayPinyin} tiào wǔ.`,
+      english: `Pikachu hugged ${item.word} and danced.`
+    }
+  };
+  return { hero, ...templates[hero] };
 }
 
 function nextWord() {
@@ -427,7 +537,7 @@ function resetAll() {
   selectedHero = heroes[0];
   renderHeroes();
   showView("upload");
-  setStatus("");
+  setStatus(capabilities.openAiConfigured ? "" : "没有 OpenAI API key：照片识别先不可用，但可以手动输入练习。");
 }
 
 function addWordRow() {
@@ -480,17 +590,25 @@ els.nextButton.addEventListener("click", nextWord);
 els.againButton.addEventListener("click", restartPractice);
 els.resetButton.addEventListener("click", resetAll);
 
-renderHeroes();
-if (state.items.length && state.view === "review") {
-  renderReview();
-  showView("review");
-} else if (state.items.length && state.view === "done") {
-  renderDone();
-  showView("done");
-} else if (state.items.length) {
-  renderPractice();
-  showView("practice");
-  setStatus("已恢复上次进度。");
-} else {
-  showView("upload");
+async function init() {
+  await refreshCapabilities();
+  renderHeroes();
+  if (state.items.length && state.view === "review") {
+    renderReview();
+    showView("review");
+  } else if (state.items.length && state.view === "done") {
+    renderDone();
+    showView("done");
+  } else if (state.items.length) {
+    renderPractice();
+    showView("practice");
+    setStatus("已恢复上次进度。");
+  } else {
+    showView("upload");
+    if (!capabilities.openAiConfigured) {
+      setStatus("没有 OpenAI API key：照片识别先不可用，但可以手动输入练习。");
+    }
+  }
 }
+
+await init();

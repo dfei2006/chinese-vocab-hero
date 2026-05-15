@@ -10,12 +10,14 @@ The voice is the hardest part, so this app uses **Azure Speech** for text-to-spe
 
 OpenAI handles the parts where language understanding matters: reading the worksheet photo, generating the silly sentence, and transcribing the kid's recording for fuzzy matching.
 
-That means you need:
+For the full photo-to-practice flow, you need:
 
 - One OpenAI API key
 - One Azure Speech key, plus the Azure region printed next to that key
 
 No Google Cloud project, no custom search engine, no image API, no browser scraping.
+
+If you only have a ChatGPT/OAuth login and no OpenAI API key, the app still works in manual-entry mode. You can type the word and pinyin yourself, use the browser's built-in Chinese speech recognition for pronunciation checks, and still use Azure Speech for the important natural voice playback.
 
 ## What Is Saved Locally
 
@@ -35,7 +37,7 @@ node --version
 
 If that prints `v20` or higher, you are good.
 
-### 2. Get an OpenAI API key
+### 2. Optional: Get an OpenAI API key
 
 1. Go to [OpenAI API keys](https://platform.openai.com/api-keys).
 2. Sign in.
@@ -43,6 +45,8 @@ If that prints `v20` or higher, you are good.
 4. Copy it once. It will look like `sk-...`.
 
 OpenAI's API uses the key as a bearer token for requests.
+
+Your ChatGPT/OAuth login is not the same thing as an API key. If you do not have an API key, leave `OPENAI_API_KEY` blank and use **手动输入** in the app.
 
 ### 3. Get an Azure Speech key
 
@@ -66,7 +70,7 @@ cp .env.example .env
 Open `.env` and fill it in:
 
 ```bash
-OPENAI_API_KEY=sk-your-openai-key
+OPENAI_API_KEY=
 OPENAI_TEXT_MODEL=gpt-4.1-mini
 OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
 
@@ -99,8 +103,8 @@ Browsers usually allow the microphone on `localhost`. On a phone, you may need t
 
 ## Daily Use
 
-1. Upload a clear photo of the worksheet.
-2. Or tap **手动输入** if you want to type a short list yourself.
+1. Upload a clear photo of the worksheet if `OPENAI_API_KEY` is set.
+2. Or tap **手动输入** if you do not have an OpenAI API key or want to type a short list yourself.
 3. Check every word and pinyin before starting.
 4. Tap **听一遍** if the kid wants to hear the word.
 5. Tap **按下录音**, say the word, then tap again to stop.
@@ -124,8 +128,15 @@ The speech matching is intentionally forgiving. It checks whether OpenAI's trans
 If worksheet upload fails:
 
 - Check `OPENAI_API_KEY`.
+- If you only have ChatGPT/OAuth login, use **手动输入** instead.
 - Make sure the photo is readable and not too dark.
 - Try again with the list filling more of the picture.
+
+If pronunciation checking says your browser cannot listen:
+
+- Try Chrome or Safari.
+- Make sure microphone access is allowed.
+- Add an OpenAI API key if you want server-side transcription instead of browser speech recognition.
 
 If audio fails:
 
