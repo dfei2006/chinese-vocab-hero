@@ -453,6 +453,9 @@ async function handleTts(req, res) {
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");
+    if (response.status === 401) {
+      throw new UserError("Azure rejected the Speech key or region. Copy KEY 1 from your Azure Speech resource and make sure AZURE_SPEECH_REGION matches that resource, for example eastus.", 401);
+    }
     throw new UserError(details || "Azure Speech request failed.", response.status);
   }
 
