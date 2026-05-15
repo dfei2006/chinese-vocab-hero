@@ -38,7 +38,9 @@ let mediaRecorder = null;
 let recordingChunks = [];
 let capabilities = {
   openAiConfigured: false,
-  azureConfigured: false
+  anthropicConfigured: false,
+  azureConfigured: false,
+  languageProvider: "local"
 };
 
 function freshState() {
@@ -96,7 +98,12 @@ async function refreshCapabilities() {
     const response = await fetch("/api/health");
     if (response.ok) capabilities = await response.json();
   } catch {
-    capabilities = { openAiConfigured: false, azureConfigured: false };
+    capabilities = {
+      openAiConfigured: false,
+      anthropicConfigured: false,
+      azureConfigured: false,
+      languageProvider: "local"
+    };
   }
 }
 
@@ -127,8 +134,8 @@ async function handlePhotoChange(event) {
   if (!file) return;
 
   try {
-    if (!capabilities.openAiConfigured) {
-      throw new Error("照片识别需要 OpenAI API key。现在可以先点“手动输入”。");
+    if (capabilities.languageProvider === "local") {
+      throw new Error("照片识别需要 Anthropic 或 OpenAI API key。现在可以先点“手动输入”。");
     }
     setStatus("正在读照片...");
     const imageDataUrl = await imageFileToDataUrl(file);
@@ -459,7 +466,7 @@ async function handleTranscript(item, text) {
 async function revealSentence(item) {
   if (!item.sentence) {
     setStatus("正在召唤英雄句子...");
-    item.sentence = capabilities.openAiConfigured
+    item.sentence = capabilities.languageProvider !== "local"
       ? await apiJson("/api/sentence", {
           word: item.word,
           pinyin: item.pinyin,
@@ -537,7 +544,7 @@ function resetAll() {
   selectedHero = heroes[0];
   renderHeroes();
   showView("upload");
-  setStatus(capabilities.openAiConfigured ? "" : "没有 OpenAI API key：照片识别先不可用，但可以手动输入练习。");
+  setStatus(capabilities.languageProvider === "local" ? "没有 Anthropic/OpenAI API key：照片识别先不可用，但可以手动输入练习。" : "");
 }
 
 function addWordRow() {
@@ -605,8 +612,8 @@ async function init() {
     setStatus("已恢复上次进度。");
   } else {
     showView("upload");
-    if (!capabilities.openAiConfigured) {
-      setStatus("没有 OpenAI API key：照片识别先不可用，但可以手动输入练习。");
+    if (capabilities.languageProvider === "local") {
+      setStatus("没有 Anthropic/OpenAI API key：照片识别先不可用，但可以手动输入练习。");
     }
   }
 }

@@ -8,16 +8,16 @@ The app starts with a worksheet photo, extracts the numbered Chinese words and p
 
 The voice is the hardest part, so this app uses **Azure Speech** for text-to-speech. Azure supports SSML phoneme hints for `zh-CN` using pinyin tone numbers like `chang 2` and `zhang 3`, which is exactly what we need for homophones such as 长.
 
-OpenAI handles the parts where language understanding matters: reading the worksheet photo, generating the silly sentence, and transcribing the kid's recording for fuzzy matching.
+Anthropic handles the parts where language understanding matters: reading the worksheet photo and generating the silly sentence. If you also add an OpenAI API key, the app can use OpenAI for server-side speech transcription; otherwise it uses the browser's built-in Chinese speech recognition.
 
 For the full photo-to-practice flow, you need:
 
-- One OpenAI API key
+- One Anthropic API key
 - One Azure Speech key, plus the Azure region printed next to that key
 
 No Google Cloud project, no custom search engine, no image API, no browser scraping.
 
-If you only have a ChatGPT/OAuth login and no OpenAI API key, the app still works in manual-entry mode. You can type the word and pinyin yourself, use the browser's built-in Chinese speech recognition for pronunciation checks, and still use Azure Speech for the important natural voice playback.
+OpenAI is optional. If you only have a ChatGPT/OAuth login and no OpenAI API key, leave `OPENAI_API_KEY` blank.
 
 ## What Is Saved Locally
 
@@ -37,18 +37,27 @@ node --version
 
 If that prints `v20` or higher, you are good.
 
-### 2. Optional: Get an OpenAI API key
+### 2. Get an Anthropic API key
+
+1. Go to [Anthropic Console API keys](https://console.anthropic.com/settings/keys).
+2. Sign in.
+3. Create a key.
+4. Copy it once.
+
+The app uses this one key for worksheet photo OCR and sentence generation.
+
+### 3. Optional: Get an OpenAI API key
 
 1. Go to [OpenAI API keys](https://platform.openai.com/api-keys).
 2. Sign in.
 3. Create a new secret key.
 4. Copy it once. It will look like `sk-...`.
 
-OpenAI's API uses the key as a bearer token for requests.
+OpenAI is only used for server-side speech transcription. Without it, the app uses browser speech recognition.
 
-Your ChatGPT/OAuth login is not the same thing as an API key. If you do not have an API key, leave `OPENAI_API_KEY` blank and use **手动输入** in the app.
+Your ChatGPT/OAuth login is not the same thing as an API key. If you do not have an OpenAI API key, leave `OPENAI_API_KEY` blank.
 
-### 3. Get an Azure Speech key
+### 4. Get an Azure Speech key
 
 1. Go to [Azure AI Speech](https://portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices).
 2. Create a Speech resource.
@@ -59,7 +68,7 @@ Your ChatGPT/OAuth login is not the same thing as an API key. If you do not have
 
 Use a Speech resource, not the old Edge browser TTS workaround.
 
-### 4. Create your `.env` file
+### 5. Create your `.env` file
 
 Copy the example file:
 
@@ -74,6 +83,9 @@ OPENAI_API_KEY=
 OPENAI_TEXT_MODEL=gpt-4.1-mini
 OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
 
+ANTHROPIC_API_KEY=your-anthropic-key
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+
 AZURE_SPEECH_KEY=your-azure-speech-key
 AZURE_SPEECH_REGION=eastus
 AZURE_SPEECH_VOICE=zh-CN-XiaoxiaoMultilingualNeural
@@ -83,7 +95,7 @@ PORT=4173
 
 The default Azure voice is a natural Mandarin neural voice. You can swap it for another `zh-CN` neural voice later, but start here first.
 
-### 5. Run the app
+### 6. Run the app
 
 ```bash
 npm start
@@ -103,8 +115,8 @@ Browsers usually allow the microphone on `localhost`. On a phone, you may need t
 
 ## Daily Use
 
-1. Upload a clear photo of the worksheet if `OPENAI_API_KEY` is set.
-2. Or tap **手动输入** if you do not have an OpenAI API key or want to type a short list yourself.
+1. Upload a clear photo of the worksheet if `ANTHROPIC_API_KEY` is set.
+2. Or tap **手动输入** if you want to type a short list yourself.
 3. Check every word and pinyin before starting.
 4. Tap **听一遍** if the kid wants to hear the word.
 5. Tap **按下录音**, say the word, then tap again to stop.
@@ -121,14 +133,14 @@ The app sends pinyin hints to Azure Speech as SSML phonemes for the target vocab
 
 For full sentences, the app wraps the target word with that hint and lets the surrounding Chinese sentence provide natural context.
 
-The speech matching is intentionally forgiving. It checks whether OpenAI's transcription contains the expected Chinese word, with a little wiggle room for multi-character words. It is meant to keep practice moving, not grade a child like a formal pronunciation exam.
+The speech matching is intentionally forgiving. It checks whether the transcription contains the expected Chinese word, with a little wiggle room for multi-character words. It is meant to keep practice moving, not grade a child like a formal pronunciation exam.
 
 ## Troubleshooting
 
 If worksheet upload fails:
 
-- Check `OPENAI_API_KEY`.
-- If you only have ChatGPT/OAuth login, use **手动输入** instead.
+- Check `ANTHROPIC_API_KEY`.
+- If you do not want to use an OCR provider, use **手动输入** instead.
 - Make sure the photo is readable and not too dark.
 - Try again with the list filling more of the picture.
 
@@ -158,6 +170,9 @@ NODE_ENV=development npm start
 
 ## Official Docs
 
+- [Anthropic API overview](https://docs.anthropic.com/en/api/overview)
+- [Anthropic Messages examples](https://docs.anthropic.com/en/api/messages-examples)
+- [Anthropic vision guide](https://docs.anthropic.com/en/docs/build-with-claude/vision)
 - [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses/compact?api-mode=responses)
 - [OpenAI speech-to-text guide](https://platform.openai.com/docs/guides/speech-to-text)
 - [Azure Speech text-to-speech REST API](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech)

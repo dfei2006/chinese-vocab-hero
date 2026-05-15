@@ -13,6 +13,7 @@ await loadEnvFile(join(rootDir, ".env"));
 const port = Number(process.env.PORT || 4173);
 const openAiTextModel = process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini";
 const openAiTranscribeModel = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
+const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 const azureVoice = process.env.AZURE_SPEECH_VOICE || "zh-CN-XiaoxiaoMultilingualNeural";
 
 const mimeTypes = {
@@ -117,6 +118,76 @@ async function callOpenAiResponses(payload) {
   return parseJsonText(extractOutputText(responseJson));
 }
 
+function extractAnthropicText(responseJson) {
+  return (responseJson.content || [])
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("\n");
+}
+
+async function callAnthropicMessages(payload) {
+  const apiKey = requireEnv("ANTHROPIC_API_KEY");
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const responseJson = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(responseJson.error?.message || "Anthropic request failed.");
+  }
+
+  return parseJsonText(extractAnthropicText(responseJson));
+}
+
+function preferredLanguageProvider() {
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return "local";
+}
+
+async function callLanguageJson({ prompt, imageDataUrl, maxTokens = 1200 }) {
+  const provider = preferredLanguageProvider();
+
+  if (provider === "anthropic") {
+    const content = [];
+    if (imageDataUrl) {
+      const match = imageDataUrl.match(/^data:(image\/(?:jpeg|jpg|png|gif|webp));base64,(.+)$/);
+      if (!match) throw new UserError("Use a JPEG, PNG, GIF, or WebP worksheet photo.");
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: match[1] === "image/jpg" ? "image/jpeg" : match[1],
+          data: match[2]
+        }
+      });
+    }
+    content.push({ type: "text", text: prompt });
+    return callAnthropicMessages({
+      model: anthropicModel,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content }]
+    });
+  }
+
+  if (provider === "openai") {
+    const content = [{ type: "input_text", text: prompt }];
+    if (imageDataUrl) content.push({ type: "input_image", image_url: imageDataUrl });
+    return callOpenAiResponses({
+      model: openAiTextModel,
+      input: [{ role: "user", content }]
+    });
+  }
+
+  throw new UserError("Add ANTHROPIC_API_KEY for worksheet photos, or use manual entry.", 400);
+}
+
 async function handleOcr(req, res) {
   const { imageDataUrl } = await readJson(req);
   if (!imageDataUrl?.startsWith("data:image/")) {
@@ -147,18 +218,7 @@ Rules:
 - Do not include translations, explanations, markdown, or commentary.
 `.trim();
 
-  const result = await callOpenAiResponses({
-    model: openAiTextModel,
-    input: [
-      {
-        role: "user",
-        content: [
-          { type: "input_text", text: prompt },
-          { type: "input_image", image_url: imageDataUrl }
-        ]
-      }
-    ]
-  });
+  const result = await callLanguageJson({ prompt, imageDataUrl });
 
   const items = Array.isArray(result.items) ? result.items : [];
   sendJson(res, 200, {
@@ -203,10 +263,7 @@ Rules:
 - Pinyin must match the sentence.
 `.trim();
 
-  const result = await callOpenAiResponses({
-    model: openAiTextModel,
-    input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }]
-  });
+  const result = await callLanguageJson({ prompt, maxTokens: 700 });
 
   sendJson(res, 200, {
     hero: chosenHero,
@@ -356,6 +413,8 @@ async function handleApi(req, res) {
     sendJson(res, 200, {
       ok: true,
       openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+      anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
+      languageProvider: preferredLanguageProvider(),
       azureConfigured: Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION),
       azureVoice
     });
