@@ -195,6 +195,10 @@ h2 {
   background: var(--paper);
 }
 
+.secondary-action.compact {
+  width: fit-content;
+}
+
 .record-action {
   flex: 1;
   padding: 0 18px;
@@ -395,4 +399,3 @@ h2 {
     width: 100%;
   }
 }
-

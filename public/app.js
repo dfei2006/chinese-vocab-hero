@@ -5,6 +5,7 @@ const els = {
   statusStrip: document.querySelector("#statusStrip"),
   resetButton: document.querySelector("#resetButton"),
   photoInput: document.querySelector("#photoInput"),
+  manualButton: document.querySelector("#manualButton"),
   uploadView: document.querySelector("#uploadView"),
   reviewView: document.querySelector("#reviewView"),
   practiceView: document.querySelector("#practiceView"),
@@ -444,6 +445,13 @@ function addWordRow() {
   renderReview();
 }
 
+function startManualEntry() {
+  if (!state.items.length) addWordRow();
+  renderReview();
+  showView("review");
+  setStatus("");
+}
+
 function startPractice() {
   state.items = state.items
     .filter((item) => item.word.trim() && item.pinyin.trim())
@@ -462,6 +470,7 @@ function startPractice() {
 }
 
 els.photoInput.addEventListener("change", handlePhotoChange);
+els.manualButton.addEventListener("click", startManualEntry);
 els.addWordButton.addEventListener("click", addWordRow);
 els.startButton.addEventListener("click", startPractice);
 els.listenWordButton.addEventListener("click", listenToCurrentWord);
@@ -485,4 +494,3 @@ if (state.items.length && state.view === "review") {
 } else {
   showView("upload");
 }
-

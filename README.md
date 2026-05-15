@@ -100,11 +100,12 @@ Browsers usually allow the microphone on `localhost`. On a phone, you may need t
 ## Daily Use
 
 1. Upload a clear photo of the worksheet.
-2. Check every word and pinyin before starting.
-3. Tap **听一遍** if the kid wants to hear the word.
-4. Tap **按下录音**, say the word, then tap again to stop.
-5. The app fuzzy-matches the transcription and always reveals a sentence.
-6. Tap **下一个** to continue.
+2. Or tap **手动输入** if you want to type a short list yourself.
+3. Check every word and pinyin before starting.
+4. Tap **听一遍** if the kid wants to hear the word.
+5. Tap **按下录音**, say the word, then tap again to stop.
+6. The app fuzzy-matches the transcription and always reveals a sentence.
+7. Tap **下一个** to continue.
 
 ## Notes On Tone Accuracy
 
@@ -150,4 +151,3 @@ NODE_ENV=development npm start
 - [OpenAI speech-to-text guide](https://platform.openai.com/docs/guides/speech-to-text)
 - [Azure Speech text-to-speech REST API](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech)
 - [Azure Speech phonetic alphabets](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-ssml-phonetic-sets)
-
