@@ -22,7 +22,7 @@ services:
       - key: VOLCENGINE_TTS_ACCESS_TOKEN
         sync: false
       - key: VOLCENGINE_TTS_RESOURCE_ID
-        value: seed-tts-2.0
+        value: seed-icl-2.0
       - key: VOLCENGINE_TTS_VOICE_TYPE
         sync: false
       - key: VOLCENGINE_REALTIME_APP_ID

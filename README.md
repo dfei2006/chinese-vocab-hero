@@ -81,7 +81,7 @@ Use a Speech resource, not the old Edge browser TTS workaround.
 3. Create or open an app.
 4. Copy the app's **APP ID**.
 5. In the left sidebar, open **API访问密钥** and create/copy an **API Key**.
-6. Use the resource ID for the model, usually `seed-tts-2.0`.
+6. Use the resource ID for the model. For a cloned/custom `S_...` voice like this app's coach voice, use `seed-icl-2.0`. For a standard built-in Seed TTS voice, use `seed-tts-2.0`.
 7. Find the **voice_type** / **speaker** shown in the TTS API examples.
 
 The newer console uses API Key access with the `X-Api-Key` header. The old console used Access Token. The app supports both, but the API Key path is the one to use on the screen you showed.
@@ -111,15 +111,15 @@ AZURE_SPEECH_VOICE=zh-CN-XiaoxiaoMultilingualNeural
 TTS_PROVIDER=
 VOLCENGINE_TTS_APP_ID=
 VOLCENGINE_TTS_ACCESS_KEY=
-VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
+VOLCENGINE_TTS_RESOURCE_ID=seed-icl-2.0
 VOLCENGINE_TTS_ACCESS_TOKEN=
 VOLCENGINE_TTS_CLUSTER=volcano_tts
-VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
+VOLCENGINE_TTS_VOICE_TYPE=S_nNepq2X22
 
 VOLCENGINE_REALTIME_APP_ID=
 VOLCENGINE_REALTIME_ACCESS_TOKEN=
 VOLCENGINE_REALTIME_ACCESS_KEY=
-VOLCENGINE_REALTIME_SPEAKER=zh_female_shuangkuaisisi_uranus_bigtts
+VOLCENGINE_REALTIME_SPEAKER=S_nNepq2X22
 
 HTTPS_PROXY=
 NO_PROXY=localhost,127.0.0.1
@@ -133,8 +133,8 @@ To force 火山 instead of Azure:
 TTS_PROVIDER=volcengine
 VOLCENGINE_TTS_APP_ID=your_app_id
 VOLCENGINE_TTS_ACCESS_KEY=your_api_key
-VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
-VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
+VOLCENGINE_TTS_RESOURCE_ID=seed-icl-2.0
+VOLCENGINE_TTS_VOICE_TYPE=S_nNepq2X22
 ```
 
 For the unlocked live voice chat, fill these from the 火山 **豆包端到端实时语音大模型** API access page:
@@ -204,7 +204,7 @@ ANTHROPIC_API_KEY
 TTS_PROVIDER=volcengine
 VOLCENGINE_TTS_APP_ID
 VOLCENGINE_TTS_ACCESS_KEY or VOLCENGINE_TTS_ACCESS_TOKEN
-VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
+VOLCENGINE_TTS_RESOURCE_ID=seed-icl-2.0
 VOLCENGINE_TTS_VOICE_TYPE
 VOLCENGINE_REALTIME_APP_ID
 VOLCENGINE_REALTIME_ACCESS_TOKEN
@@ -286,7 +286,7 @@ If audio fails:
 
 - Check `TTS_PROVIDER`.
 - For Azure, check `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`.
-- For 火山 API Key mode, check `VOLCENGINE_TTS_APP_ID`, `VOLCENGINE_TTS_ACCESS_KEY`, `VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0`, and `VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts`.
+- For 火山 API Key mode, check `VOLCENGINE_TTS_APP_ID`, `VOLCENGINE_TTS_ACCESS_KEY`, `VOLCENGINE_TTS_RESOURCE_ID=seed-icl-2.0`, and `VOLCENGINE_TTS_VOICE_TYPE=S_nNepq2X22` for the cloned coach voice.
 - If 火山 says the voice is invalid or mismatched, the voice type and resource ID do not belong to the same model grant.
 
 If live voice chat says 火山 rejected the connection or shows `401`:
