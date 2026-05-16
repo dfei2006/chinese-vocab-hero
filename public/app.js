@@ -1,4 +1,5 @@
 const storageKey = "chinese-vocab-hero-state-v1";
+const batchesKey = "chinese-vocab-hero-batches-v1";
 const heroes = ["Superman", "Spider-Man", "Transformers", "Nezha", "Pikachu"];
 const chatUnlockCorrect = 3;
 const celebrationLines = [
@@ -13,6 +14,8 @@ const els = {
   resetButton: document.querySelector("#resetButton"),
   photoInput: document.querySelector("#photoInput"),
   manualButton: document.querySelector("#manualButton"),
+  savedBatchesSection: document.querySelector("#savedBatchesSection"),
+  batchList: document.querySelector("#batchList"),
   uploadView: document.querySelector("#uploadView"),
   reviewView: document.querySelector("#reviewView"),
   practiceView: document.querySelector("#practiceView"),
@@ -47,6 +50,7 @@ const els = {
 };
 
 let state = loadState();
+let batches = loadBatches();
 let activeAudioUrl = null;
 let mediaRecorder = null;
 let recordingChunks = [];
@@ -65,6 +69,7 @@ function freshState() {
     currentIndex: 0,
     correct: 0,
     attempts: 0,
+    currentBatchId: null,
     chatOpen: false,
     chatHistory: []
   };
@@ -80,8 +85,22 @@ function loadState() {
   return freshState();
 }
 
+function loadBatches() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(batchesKey));
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    localStorage.removeItem(batchesKey);
+    return [];
+  }
+}
+
 function saveState() {
   localStorage.setItem(storageKey, JSON.stringify(state));
+}
+
+function saveBatches() {
+  localStorage.setItem(batchesKey, JSON.stringify(batches));
 }
 
 function setStatus(message) {
@@ -122,7 +141,7 @@ async function refreshCapabilities() {
   }
 }
 
-async function imageFileToDataUrl(file) {
+async function imageFileToDataUrls(file) {
   const rawDataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -134,14 +153,20 @@ async function imageFileToDataUrl(file) {
   image.src = rawDataUrl;
   await image.decode();
 
-  const maxSide = 1800;
-  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(image.width * scale);
-  canvas.height = Math.round(image.height * scale);
-  const context = canvas.getContext("2d");
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.86);
+  const render = (maxSide, quality) => {
+    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.width * scale);
+    canvas.height = Math.round(image.height * scale);
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", quality);
+  };
+
+  return {
+    imageDataUrl: render(1800, 0.86),
+    thumbnailDataUrl: render(420, 0.72)
+  };
 }
 
 async function handlePhotoChange(event) {
@@ -153,20 +178,17 @@ async function handlePhotoChange(event) {
       throw new Error("照片识别需要 Anthropic 或 OpenAI API key。现在可以先点“手动输入”。");
     }
     setStatus("正在读照片...");
-    const imageDataUrl = await imageFileToDataUrl(file);
+    const { imageDataUrl, thumbnailDataUrl } = await imageFileToDataUrls(file);
     const result = await apiJson("/api/ocr", { imageDataUrl });
-    state.items = result.items.map((item, index) => ({
-      ...item,
-      number: index + 1,
-      sentence: null,
-      sentenceRevealed: false,
-      completed: false,
-      lastResult: null
-    }));
+    state.items = prepareItemsForPractice(result.items);
     state.currentIndex = 0;
     state.correct = 0;
     state.attempts = 0;
+    state.chatOpen = false;
+    state.chatHistory = [];
+    state.currentBatchId = saveCurrentBatch({ thumbnailDataUrl });
     saveState();
+    renderSavedBatches();
     renderReview();
     showView("review");
     setStatus(`找到 ${state.items.length} 个词。`);
@@ -175,6 +197,93 @@ async function handlePhotoChange(event) {
   } finally {
     event.target.value = "";
   }
+}
+
+function prepareItemsForPractice(items) {
+  return items.map((item, index) => ({
+    ...item,
+    id: item.id || crypto.randomUUID(),
+    number: index + 1,
+    sentence: null,
+    sentenceRevealed: false,
+    completed: false,
+    lastResult: null
+  }));
+}
+
+function batchItemsFromState() {
+  return state.items
+    .filter((item) => item.word?.trim() && item.pinyin?.trim())
+    .map((item, index) => ({
+      id: item.id || crypto.randomUUID(),
+      number: index + 1,
+      word: item.word.trim(),
+      pinyin: item.pinyin.trim(),
+      displayPinyin: (item.displayPinyin || item.pinyin).trim()
+    }));
+}
+
+function batchTitle(items) {
+  const words = items.slice(0, 3).map((item) => item.word).filter(Boolean).join("、");
+  return words || "词语表";
+}
+
+function saveCurrentBatch({ thumbnailDataUrl } = {}) {
+  const items = batchItemsFromState();
+  if (!items.length) return state.currentBatchId || null;
+
+  const id = state.currentBatchId || crypto.randomUUID();
+  const existing = batches.find((batch) => batch.id === id);
+  const savedBatch = {
+    id,
+    title: batchTitle(items),
+    count: items.length,
+    updatedAt: Date.now(),
+    thumbnailDataUrl: thumbnailDataUrl || existing?.thumbnailDataUrl || "",
+    items
+  };
+
+  batches = [savedBatch, ...batches.filter((batch) => batch.id !== id)].slice(0, 12);
+  saveBatches();
+  return id;
+}
+
+function renderSavedBatches() {
+  els.batchList.innerHTML = "";
+  els.savedBatchesSection.classList.toggle("hidden", !batches.length);
+  for (const batch of batches) {
+    const button = document.createElement("button");
+    button.className = "batch-card";
+    button.type = "button";
+    const thumb = batch.thumbnailDataUrl
+      ? `<img class="batch-thumb" src="${batch.thumbnailDataUrl}" alt="">`
+      : `<div class="batch-thumb placeholder" aria-hidden="true">词</div>`;
+    button.innerHTML = `
+      ${thumb}
+      <span class="batch-copy">
+        <strong>${escapeHtml(batch.title)}</strong>
+        <span>${batch.count || batch.items?.length || 0} 个词</span>
+      </span>
+    `;
+    button.addEventListener("click", () => openBatch(batch.id));
+    els.batchList.append(button);
+  }
+}
+
+function openBatch(batchId) {
+  const batch = batches.find((entry) => entry.id === batchId);
+  if (!batch) return;
+  state = {
+    ...freshState(),
+    view: "review",
+    currentBatchId: batch.id,
+    items: prepareItemsForPractice(batch.items || [])
+  };
+  lastRenderedIndex = -1;
+  saveState();
+  renderReview();
+  showView("review");
+  setStatus(`已打开 ${batch.count || batch.items.length} 个词。`);
 }
 
 function renderReview() {
@@ -697,6 +806,7 @@ function resetAll() {
   localStorage.removeItem(storageKey);
   state = freshState();
   lastRenderedIndex = -1;
+  renderSavedBatches();
   showView("upload");
   setStatus(capabilities.languageProvider === "local" ? "没有 Anthropic/OpenAI API key：照片识别先不可用，但可以手动输入练习。" : "");
 }
@@ -719,6 +829,7 @@ function addWordRow() {
 
 function startManualEntry() {
   if (!state.items.length) addWordRow();
+  state.currentBatchId = state.currentBatchId || null;
   renderReview();
   showView("review");
   setStatus("");
@@ -735,6 +846,8 @@ function startPractice() {
   }
 
   state.currentIndex = Math.min(state.currentIndex, state.items.length - 1);
+  state.currentBatchId = saveCurrentBatch();
+  renderSavedBatches();
   saveState();
   renderPractice();
   showView("practice");
@@ -768,6 +881,7 @@ els.wordStage.addEventListener("keydown", (event) => {
 
 async function init() {
   await refreshCapabilities();
+  renderSavedBatches();
   if (state.items.length && state.view === "review") {
     renderReview();
     showView("review");

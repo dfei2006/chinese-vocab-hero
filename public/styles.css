@@ -115,6 +115,80 @@ h2 {
   line-height: 1.5;
 }
 
+.saved-batches {
+  width: min(100%, 520px);
+  margin-top: 4px;
+}
+
+.saved-batches h3 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1.1;
+}
+
+.batch-list {
+  display: grid;
+  gap: 10px;
+}
+
+.batch-card {
+  width: 100%;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 4px 4px 0 var(--ink);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.batch-thumb {
+  width: 58px;
+  height: 58px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  object-fit: cover;
+  background: #fff8dd;
+}
+
+.batch-thumb.placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--teal-dark);
+  font-size: 1.7rem;
+  font-weight: 900;
+}
+
+.batch-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.batch-copy strong,
+.batch-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-copy strong {
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.batch-copy span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .upload-art {
   display: grid;
   grid-template-columns: repeat(4, minmax(54px, 1fr));
