@@ -1,19 +1,19 @@
 :root {
   color-scheme: light;
   font-family: ui-rounded, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-  background: #f4f0e6;
-  color: #16202d;
-  --ink: #16202d;
-  --muted: #68717d;
-  --paper: #fffdf8;
-  --line: #d9d1bf;
-  --teal: #08766f;
-  --teal-dark: #075c57;
-  --red: #d73d3d;
-  --yellow: #f5bd28;
-  --green: #2c8a4f;
-  --blue: #2f69c8;
-  --shadow: 0 16px 42px rgba(29, 38, 51, 0.12);
+  background: #f1e8d8;
+  color: #111820;
+  --ink: #111820;
+  --muted: #66717a;
+  --paper: #fff8ec;
+  --line: #d7c1a8;
+  --teal: #0e7280;
+  --teal-dark: #0a4d59;
+  --red: #c94633;
+  --yellow: #eab45f;
+  --green: #2d8758;
+  --blue: #2f6f93;
+  --shadow: 0 16px 42px rgba(13, 19, 28, 0.14);
 }
 
 * {
@@ -155,7 +155,7 @@ h2 {
   border: 2px solid var(--ink);
   border-radius: 8px;
   object-fit: cover;
-  background: #fff8dd;
+  background: #f5e0bd;
 }
 
 .batch-thumb.placeholder {
@@ -210,19 +210,22 @@ h2 {
 }
 
 .upload-art span:nth-child(1) {
-  background: #f05a4f;
+  background: #c94633;
+  color: white;
 }
 
 .upload-art span:nth-child(2) {
-  background: #6bbce8;
+  background: #4d849e;
+  color: white;
 }
 
 .upload-art span:nth-child(3) {
-  background: #f5bd28;
+  background: #eab45f;
 }
 
 .upload-art span:nth-child(4) {
-  background: #8bd17c;
+  background: #6f8a73;
+  color: white;
 }
 
 .primary-action,
@@ -281,7 +284,7 @@ h2 {
 }
 
 .record-action.recording {
-  background: #7b1f1f;
+  background: #7a2119;
 }
 
 .icon-button {
@@ -330,8 +333,8 @@ h2 {
   height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff3f3;
-  color: #9c2525;
+  background: #fff0ea;
+  color: #8d2a21;
   font-weight: 900;
 }
 
@@ -364,7 +367,7 @@ h2 {
 
 .word-stage.success-pop {
   animation: success-pop 520ms ease;
-  background: #f0ffe8;
+  background: #eef7e9;
 }
 
 .character {
@@ -409,14 +412,14 @@ h2 {
   padding: 12px;
   border: 2px solid var(--ink);
   border-radius: 8px;
-  background: #fff6d8;
+  background: #f7e2bd;
   box-shadow: 4px 4px 0 var(--ink);
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
 .coach-card.locked {
-  background: #fff6d8;
+  background: #f7e2bd;
 }
 
 .coach-card:active {
@@ -434,7 +437,7 @@ h2 {
   height: 70px;
   border: 2px solid var(--ink);
   border-radius: 50%;
-  background: #fffdf8;
+  background: var(--paper);
   object-fit: cover;
 }
 
@@ -476,7 +479,7 @@ h2 {
   position: relative;
   overflow: hidden;
   border-color: var(--green);
-  background: #eaffdf;
+  background: #edf7e5;
   color: var(--green);
   font-weight: 900;
   box-shadow: 4px 4px 0 var(--ink);
@@ -488,17 +491,17 @@ h2 {
   inset: -18px;
   pointer-events: none;
   background:
-    radial-gradient(circle at 15% 35%, #f5bd28 0 4px, transparent 5px),
-    radial-gradient(circle at 35% 15%, #f05a4f 0 4px, transparent 5px),
-    radial-gradient(circle at 82% 28%, #6bbce8 0 4px, transparent 5px),
-    radial-gradient(circle at 68% 82%, #8bd17c 0 4px, transparent 5px);
+    radial-gradient(circle at 15% 35%, #eab45f 0 4px, transparent 5px),
+    radial-gradient(circle at 35% 15%, #c94633 0 4px, transparent 5px),
+    radial-gradient(circle at 82% 28%, #4d849e 0 4px, transparent 5px),
+    radial-gradient(circle at 68% 82%, #6f8a73 0 4px, transparent 5px);
   animation: confetti-pop 700ms ease forwards;
 }
 
 .feedback.try {
-  border-color: #e8a3a3;
-  background: #fff3f3;
-  color: #9c2525;
+  border-color: #dca39a;
+  background: #fff0ea;
+  color: #8d2a21;
   font-weight: 900;
 }
 
@@ -513,7 +516,7 @@ h2 {
   padding: 12px;
   border: 2px solid var(--blue);
   border-radius: 8px;
-  background: #eef5ff;
+  background: #e7f0f2;
 }
 
 .chat-messages {
@@ -537,12 +540,12 @@ h2 {
 
 .chat-bubble.kid {
   justify-self: end;
-  background: #dff0ff;
+  background: #dcebf0;
 }
 
 .chat-bubble.coach {
   justify-self: start;
-  background: #fffdf8;
+  background: var(--paper);
 }
 
 .chat-form {
@@ -565,7 +568,7 @@ h2 {
   margin-top: 14px;
   padding: 16px;
   border-radius: 8px;
-  background: #eaf8f7;
+  background: #e8f1ef;
   border: 2px solid var(--teal);
 }
 
