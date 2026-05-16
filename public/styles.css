@@ -467,7 +467,6 @@ h2 {
 }
 
 .feedback {
-  min-height: 64px;
   margin-top: 12px;
   padding: 12px 14px;
   border: 2px solid transparent;
@@ -528,7 +527,7 @@ h2 {
 }
 
 .chat-panel {
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 12px;
   border: 2px solid var(--blue);
   border-radius: 8px;

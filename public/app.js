@@ -360,7 +360,7 @@ function renderPractice() {
   els.currentPinyin.textContent = normalizePinyinText(item.displayPinyin || item.pinyin);
   renderCoach();
   renderFeedback(item.lastResult);
-  els.feedbackBox.className = `feedback ${item.lastResult?.ok ? "good" : item.lastResult ? "try" : ""}`;
+  els.feedbackBox.className = `feedback ${item.lastResult?.ok ? "good" : item.lastResult ? "try" : "hidden"}`;
   renderSentence(item);
   saveState();
 }
@@ -395,9 +395,11 @@ function renderCoach() {
 function renderFeedback(result) {
   if (!result) {
     els.feedbackBox.replaceChildren();
+    els.feedbackBox.classList.add("hidden");
     return;
   }
 
+  els.feedbackBox.classList.remove("hidden");
   const title = document.createElement("strong");
   title.textContent = result.ok ? "读对啦！" : "差一点，再来一口气。";
 
