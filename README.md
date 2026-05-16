@@ -25,9 +25,9 @@ OpenAI is optional. If you only have a ChatGPT/OAuth login and no OpenAI API key
 
 ## What Is Saved Locally
 
-The browser stores the extracted words, corrected pinyin, generated sentences, and progress in `localStorage` on the same device. Press the round reset button in the top right to clear it.
+The browser stores the extracted words, corrected pinyin, generated sentences, coach persona, coach avatar, chat transcript, and progress in `localStorage` on the same device.
 
-API keys stay in your local `.env` file. They are never sent to the browser.
+API keys stay on the server: in your local `.env` file for local use, or in your hosting provider's private environment variables for internet deployment. They are never sent to the browser.
 
 ## Setup
 
@@ -181,6 +181,55 @@ http://YOUR-COMPUTER-IP:4173
 
 Browsers usually allow the microphone on `localhost`. On a phone, you may need to allow microphone permission when prompted.
 
+## Deploy On The Internet
+
+The app is a single Node web service. It serves the pages, API routes, and realtime WebSocket from the same domain. That is important because microphone access needs HTTPS on the public internet, and same-domain WebSockets are simpler.
+
+The easiest deployment path is Render:
+
+1. Push this project to a private GitHub repository.
+2. Go to [Render](https://render.com).
+3. Click **New +**.
+4. Choose **Blueprint**.
+5. Connect the GitHub repo.
+6. Render will read `render.yaml`.
+7. When Render asks for secret environment variables, paste the same values from your local `.env`.
+
+The included `render.yaml` uses Render's free web service plan so you can test without choosing a paid plan first. If the app feels slow to wake up, upgrade that service in Render later.
+
+Use these required variables:
+
+```text
+ANTHROPIC_API_KEY
+TTS_PROVIDER=volcengine
+VOLCENGINE_TTS_APP_ID
+VOLCENGINE_TTS_ACCESS_KEY or VOLCENGINE_TTS_ACCESS_TOKEN
+VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
+VOLCENGINE_TTS_VOICE_TYPE
+VOLCENGINE_REALTIME_APP_ID
+VOLCENGINE_REALTIME_ACCESS_TOKEN
+VOLCENGINE_REALTIME_SPEAKER
+```
+
+Leave `PORT` alone on Render. Render provides it automatically.
+
+After deploy, open the Render URL on your phone. It should look like:
+
+```text
+https://your-app-name.onrender.com
+```
+
+Use `https://`, not plain `http://`, so the browser will allow microphone access.
+
+If you do not use Render, choose any host that supports:
+
+- Node 20+
+- `npm ci`
+- `npm start`
+- WebSockets
+- HTTPS
+- private environment variables
+
 ## Daily Use
 
 1. Upload a clear photo of the worksheet if `ANTHROPIC_API_KEY` is set.
@@ -188,9 +237,11 @@ Browsers usually allow the microphone on `localhost`. On a phone, you may need t
 3. Check every word and pinyin before starting.
 4. Tap **听一遍** if the kid wants to hear the word.
 5. Tap **按下录音**, say the word, then tap again to stop.
-6. The app fuzzy-matches the transcription and always reveals a sentence.
-7. After 3 correct words, tap the coach card and then **开始实时聊天** for live voice chat.
+6. The app checks the transcription and always reveals a sentence.
+7. After 3 correct words, the coach card lights up. Tap the coach card to start live voice chat.
 8. Tap **下一个** to continue.
+
+The gear button in the top right opens parent/admin settings for the coach persona and avatar.
 
 ## Notes On Tone Accuracy
 
@@ -204,7 +255,7 @@ For full sentences on Azure, the app wraps the target word with that hint and le
 
 With 火山/豆包, the app currently sends plain Chinese text. It may sound natural, but exact single-character heteronym control is weaker than Azure because this implementation does not pass pinyin as a phoneme hint.
 
-The speech matching is intentionally forgiving. It checks whether the transcription contains the expected Chinese word, with a little wiggle room for multi-character words. It is meant to keep practice moving, not grade a child like a formal pronunciation exam.
+The speech matching is intentionally light, but no longer accepts partial-word matches. For example, saying only `表` should not pass for `一块表`. For longer words, the app allows a tiny one-character transcription wobble so practice does not get stuck on speech-recognition noise.
 
 ## Troubleshooting
 

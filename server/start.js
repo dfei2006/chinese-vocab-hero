@@ -15,7 +15,7 @@ if (existsSync(envPath)) {
     if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
     const [key, ...valueParts] = trimmed.split("=");
     const value = valueParts.join("=").replace(/^["']|["']$/g, "");
-    if (value) env[key] = value;
+    if (value && !env[key]) env[key] = value;
   }
 }
 
@@ -31,4 +31,3 @@ child.on("exit", (code, signal) => {
   if (signal) process.kill(process.pid, signal);
   process.exit(code ?? 0);
 });
-
