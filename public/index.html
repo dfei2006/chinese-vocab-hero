@@ -32,6 +32,20 @@
             上传照片
           </label>
           <button class="secondary-action compact" id="manualButton" type="button">手动输入</button>
+          <section class="admin-settings" aria-labelledby="adminSettingsTitle">
+            <h3 id="adminSettingsTitle">家长设置</h3>
+            <label class="setting-field">
+              <span>聊天人设</span>
+              <textarea id="personaInput" rows="3"></textarea>
+            </label>
+            <div class="avatar-setting">
+              <img class="avatar-preview" id="avatarPreview" src="/coach.jpg" alt="">
+              <label class="secondary-action compact">
+                <input id="avatarInput" type="file" accept="image/*">
+                换头像
+              </label>
+            </div>
+          </section>
           <section class="saved-batches hidden" id="savedBatchesSection" aria-labelledby="savedBatchesTitle">
             <h3 id="savedBatchesTitle">以前的词语表</h3>
             <div class="batch-list" id="batchList"></div>
@@ -70,7 +84,7 @@
         </div>
 
         <section class="coach-card" id="coachCard" role="button" tabindex="0" aria-label="跟我聊天">
-          <img class="coach-portrait" src="/coach.jpg" alt="" onerror="this.hidden = true">
+          <img class="coach-portrait" id="coachPortrait" src="/coach.jpg" alt="" onerror="this.hidden = true">
           <div class="coach-copy">
             <p id="coachLine">我会听你读词，也会陪你聊天。</p>
           </div>

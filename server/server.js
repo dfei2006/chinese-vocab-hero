@@ -871,8 +871,10 @@ function realtimeSystemRole(context = {}) {
     .map((item, index) => `${index + 1}. ${item.word} (${item.pinyin || item.displayPinyin || ""})${item.completed ? " practiced" : ""}`)
     .join("\n");
   const currentWord = context.currentWord || {};
+  const personaPrompt = String(context.personaPrompt || "我是成龙 Jackie Chan。").slice(0, 500);
   return `
-你是成龙，正在给 6-10 岁孩子练中文。
+${personaPrompt}
+你正在给 6-10 岁孩子练中文。
 你要用简单、自然、短句的普通话聊天，像在实时陪孩子练习。
 每次回答尽量少于 35 个汉字，鼓励孩子多说中文。
 自然使用孩子已经练过的词，不要考试式提问太多。
@@ -884,7 +886,28 @@ ${vocabLines || "暂无。"}
 `.trim();
 }
 
+function realtimeDialogContext(context = {}) {
+  const turns = Array.isArray(context.recentTurns) ? context.recentTurns : [];
+  const normalized = turns
+    .filter((turn) => turn?.text)
+    .map((turn) => ({
+      role: turn.role === "kid" ? "user" : "assistant",
+      text: String(turn.text).slice(0, 160),
+      timestamp: Date.now()
+    }));
+
+  const pairs = [];
+  for (let i = 0; i < normalized.length - 1; i += 1) {
+    if (normalized[i].role === "user" && normalized[i + 1].role === "assistant") {
+      pairs.push(normalized[i], normalized[i + 1]);
+      i += 1;
+    }
+  }
+  return pairs.slice(-20);
+}
+
 function realtimeStartSessionPayload(context) {
+  const dialogContext = realtimeDialogContext(context);
   return {
     asr: {
       audio_info: {
@@ -906,9 +929,10 @@ function realtimeStartSessionPayload(context) {
       speaker: realtimeSpeaker
     },
     dialog: {
-      bot_name: "Atlas",
+      bot_name: "成龙",
       system_role: realtimeSystemRole(context),
       dialog_id: context.dialogId || crypto.randomUUID(),
+      ...(dialogContext.length ? { dialog_context: dialogContext } : {}),
       speaking_style: "说话自然、有活力，像在面对面鼓励孩子练中文。语速稍慢，句子短。",
       extra: {
         strict_audit: false,

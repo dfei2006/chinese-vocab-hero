@@ -26,7 +26,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -122,6 +123,65 @@ h2 {
 .saved-batches {
   width: min(100%, 520px);
   margin-top: 4px;
+}
+
+.admin-settings {
+  width: min(100%, 520px);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #f7e2bd;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.admin-settings h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.setting-field {
+  display: grid;
+  gap: 6px;
+}
+
+.setting-field span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.setting-field textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.avatar-setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar-preview {
+  width: 58px;
+  height: 58px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  object-fit: cover;
+}
+
+.avatar-setting input {
+  display: none;
 }
 
 .saved-batches h3 {

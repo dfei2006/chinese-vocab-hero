@@ -1,5 +1,8 @@
 const storageKey = "chinese-vocab-hero-state-v1";
 const batchesKey = "chinese-vocab-hero-batches-v1";
+const settingsKey = "chinese-vocab-hero-settings-v1";
+const defaultCoachPersona = "我是成龙 Jackie Chan。";
+const defaultCoachAvatar = "/coach.jpg";
 const heroes = ["Superman", "Spider-Man", "Transformers", "Nezha", "Pikachu"];
 const chatUnlockCorrect = 3;
 const celebrationLines = [
@@ -14,6 +17,9 @@ const els = {
   resetButton: document.querySelector("#resetButton"),
   photoInput: document.querySelector("#photoInput"),
   manualButton: document.querySelector("#manualButton"),
+  personaInput: document.querySelector("#personaInput"),
+  avatarInput: document.querySelector("#avatarInput"),
+  avatarPreview: document.querySelector("#avatarPreview"),
   savedBatchesSection: document.querySelector("#savedBatchesSection"),
   batchList: document.querySelector("#batchList"),
   uploadView: document.querySelector("#uploadView"),
@@ -31,6 +37,7 @@ const els = {
   listenWordButton: document.querySelector("#listenWordButton"),
   recordButton: document.querySelector("#recordButton"),
   coachCard: document.querySelector("#coachCard"),
+  coachPortrait: document.querySelector("#coachPortrait"),
   coachLine: document.querySelector("#coachLine"),
   coachProgress: document.querySelector("#coachProgress"),
   feedbackBox: document.querySelector("#feedbackBox"),
@@ -51,6 +58,7 @@ const els = {
 
 let state = loadState();
 let batches = loadBatches();
+let settings = loadSettings();
 let activeAudioUrl = null;
 let mediaRecorder = null;
 let recordingChunks = [];
@@ -73,6 +81,7 @@ function freshState() {
     attempts: 0,
     currentBatchId: null,
     chatOpen: false,
+    chatDialogId: null,
     chatHistory: []
   };
 }
@@ -97,12 +106,43 @@ function loadBatches() {
   }
 }
 
+function loadSettings() {
+  try {
+    return {
+      personaPrompt: defaultCoachPersona,
+      avatarDataUrl: defaultCoachAvatar,
+      ...JSON.parse(localStorage.getItem(settingsKey))
+    };
+  } catch {
+    localStorage.removeItem(settingsKey);
+    return {
+      personaPrompt: defaultCoachPersona,
+      avatarDataUrl: defaultCoachAvatar
+    };
+  }
+}
+
 function saveState() {
   localStorage.setItem(storageKey, JSON.stringify(state));
 }
 
 function saveBatches() {
   localStorage.setItem(batchesKey, JSON.stringify(batches));
+}
+
+function saveSettings() {
+  localStorage.setItem(settingsKey, JSON.stringify(settings));
+}
+
+function renderSettings() {
+  const persona = settings.personaPrompt || defaultCoachPersona;
+  const avatar = settings.avatarDataUrl || defaultCoachAvatar;
+  els.personaInput.value = persona;
+  els.avatarPreview.src = avatar;
+  if (els.coachPortrait) {
+    els.coachPortrait.src = avatar;
+    els.coachPortrait.hidden = false;
+  }
 }
 
 function setStatus(message) {
@@ -174,6 +214,11 @@ async function imageFileToDataUrls(file) {
     imageDataUrl: render(1800, 0.86),
     thumbnailDataUrl: render(420, 0.72)
   };
+}
+
+async function imageFileToAvatarDataUrl(file) {
+  const { thumbnailDataUrl } = await imageFileToDataUrls(file);
+  return thumbnailDataUrl;
 }
 
 async function handlePhotoChange(event) {
@@ -374,6 +419,8 @@ function remainingForChat() {
 }
 
 function renderCoach() {
+  els.coachPortrait.src = settings.avatarDataUrl || defaultCoachAvatar;
+  els.coachPortrait.hidden = false;
   const remaining = remainingForChat();
   const unlocked = isChatUnlocked();
   const progressText = `${Math.min(state.correct, chatUnlockCorrect)} / ${chatUnlockCorrect}`;
@@ -739,6 +786,24 @@ function studiedItemsForChat() {
     }));
 }
 
+function ensureChatDialogId() {
+  if (!state.chatDialogId) {
+    state.chatDialogId = `atlas-${state.currentBatchId || "manual"}-${crypto.randomUUID()}`;
+    saveState();
+  }
+  return state.chatDialogId;
+}
+
+function recentTurnsForChat() {
+  return state.chatHistory
+    .filter((turn) => !turn.live && turn.text)
+    .slice(-20)
+    .map((turn) => ({
+      role: turn.role,
+      text: turn.text
+    }));
+}
+
 function renderChatMessages() {
   els.chatMessages.innerHTML = "";
   for (const turn of state.chatHistory.slice(-12)) {
@@ -863,8 +928,11 @@ async function startRealtimeChat() {
       socket.send(JSON.stringify({
         type: "start",
         context: {
+          dialogId: ensureChatDialogId(),
+          personaPrompt: settings.personaPrompt || defaultCoachPersona,
           studiedItems: studiedItemsForChat(),
-          currentWord: getCurrentItem()
+          currentWord: getCurrentItem(),
+          recentTurns: recentTurnsForChat()
         }
       }));
     });
@@ -962,6 +1030,7 @@ function restartPractice() {
   state.correct = 0;
   state.attempts = 0;
   state.chatOpen = false;
+  state.chatDialogId = null;
   state.chatHistory = [];
   state.items = state.items.map((item) => ({ ...item, completed: false, lastResult: null, sentenceRevealed: false }));
   saveState();
@@ -1028,6 +1097,25 @@ function startPractice() {
 
 els.photoInput.addEventListener("change", handlePhotoChange);
 els.manualButton.addEventListener("click", startManualEntry);
+els.personaInput.addEventListener("input", () => {
+  settings.personaPrompt = els.personaInput.value.trim() || defaultCoachPersona;
+  saveSettings();
+});
+els.avatarInput.addEventListener("change", async (event) => {
+  const [file] = event.target.files;
+  if (!file) return;
+  try {
+    settings.avatarDataUrl = await imageFileToAvatarDataUrl(file);
+    saveSettings();
+    renderSettings();
+    renderCoach();
+    setStatus("头像已更新。");
+  } catch (error) {
+    setStatus(error.message || "头像没有换成功。");
+  } finally {
+    els.avatarInput.value = "";
+  }
+});
 els.addWordButton.addEventListener("click", addWordRow);
 els.startButton.addEventListener("click", startPractice);
 els.listenWordButton.addEventListener("click", listenToCurrentWord);
@@ -1058,6 +1146,7 @@ els.wordStage.addEventListener("keydown", (event) => {
 
 async function init() {
   await refreshCapabilities();
+  renderSettings();
   renderSavedBatches();
   if (state.items.length && state.view === "review") {
     renderReview();
