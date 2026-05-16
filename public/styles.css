@@ -342,21 +342,10 @@ h2 {
 .coach-portrait {
   width: 70px;
   height: 70px;
-  display: grid;
-  place-items: center;
   border: 2px solid var(--ink);
   border-radius: 50%;
-  background:
-    linear-gradient(135deg, #f5bd28 0 45%, #f05a4f 45% 100%);
-  color: var(--ink);
-  font-size: 2rem;
-  font-weight: 900;
-}
-
-.coach-name {
-  color: var(--ink);
-  font-size: 1.15rem;
-  font-weight: 900;
+  background: #fffdf8;
+  object-fit: cover;
 }
 
 .coach-copy p + p {
