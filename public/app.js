@@ -60,6 +60,7 @@ let capabilities = {
   openAiConfigured: false,
   anthropicConfigured: false,
   azureConfigured: false,
+  volcengineRealtimeConfigured: false,
   languageProvider: "local"
 };
 
@@ -141,6 +142,7 @@ async function refreshCapabilities() {
       openAiConfigured: false,
       anthropicConfigured: false,
       azureConfigured: false,
+      volcengineRealtimeConfigured: false,
       languageProvider: "local"
     };
   }
@@ -825,6 +827,12 @@ async function startRealtimeChat() {
     stopRealtimeChat();
     return;
   }
+  if (!capabilities.volcengineRealtimeConfigured) {
+    const message = "实时聊天还没配置好：需要填写火山端到端实时语音的 APP ID 和 API Key。";
+    els.voiceChatHint.textContent = message;
+    setStatus(message);
+    return;
+  }
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -878,12 +886,14 @@ async function startRealtimeChat() {
       } else if (message.type === "audio") {
         playRealtimeAudioChunk(base64ToFloat32(message.data), message.sampleRate || 24000);
       } else if (message.type === "error") {
-        els.voiceChatHint.textContent = message.message || "实时聊天断开了。";
-        setStatus(message.message || "实时聊天断开了。");
+        const errorMessage = message.message || "实时聊天断开了。";
+        if (liveChat) liveChat.lastError = errorMessage;
+        els.voiceChatHint.textContent = errorMessage;
+        setStatus(errorMessage);
       }
     });
 
-    socket.addEventListener("close", () => stopRealtimeChat(false));
+    socket.addEventListener("close", () => stopRealtimeChat(false, liveChat?.lastError || ""));
 
     processor.onaudioprocess = (event) => {
       if (!liveChat || socket.readyState !== WebSocket.OPEN) return;
@@ -892,13 +902,19 @@ async function startRealtimeChat() {
       socket.send(floatToInt16Buffer(samples));
     };
   } catch (error) {
-    stopRealtimeChat(false);
-    setStatus(error.message.includes("Permission") ? "麦克风没有打开。" : error.message);
+    const message = error.message.includes("Permission") ? "麦克风没有打开。" : error.message;
+    stopRealtimeChat(false, message);
   }
 }
 
-function stopRealtimeChat(closeSocket = true) {
-  if (!liveChat) return;
+function stopRealtimeChat(closeSocket = true, message = "") {
+  if (!liveChat) {
+    if (message) {
+      els.voiceChatHint.textContent = message;
+      setStatus(message);
+    }
+    return;
+  }
   const current = liveChat;
   liveChat = null;
   current.processor.disconnect();
@@ -907,8 +923,8 @@ function stopRealtimeChat(closeSocket = true) {
   current.audioContext.close();
   if (closeSocket && current.socket.readyState === WebSocket.OPEN) current.socket.close();
   finishLiveBubbles();
-  els.voiceChatHint.textContent = "打开后直接说话，我会边听边回答。";
-  setStatus("");
+  els.voiceChatHint.textContent = message || "打开后直接说话，我会边听边回答。";
+  setStatus(message);
   renderCoach();
 }
 

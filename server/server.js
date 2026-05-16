@@ -18,8 +18,8 @@ const openAiTranscribeModel = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-min
 const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 const azureVoice = process.env.AZURE_SPEECH_VOICE || "zh-CN-XiaoxiaoMultilingualNeural";
 const volcengineVoice = process.env.VOLCENGINE_TTS_VOICE_TYPE || "zh_female_shuangkuaisisi_uranus_bigtts";
-const realtimeAppId = process.env.VOLCENGINE_REALTIME_APP_ID || process.env.VOLCENGINE_TTS_APP_ID;
-const realtimeAccessToken = process.env.VOLCENGINE_REALTIME_ACCESS_TOKEN || process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY;
+const realtimeAppId = process.env.VOLCENGINE_REALTIME_APP_ID;
+const realtimeAccessToken = process.env.VOLCENGINE_REALTIME_ACCESS_TOKEN;
 const realtimeSpeaker = process.env.VOLCENGINE_REALTIME_SPEAKER || volcengineVoice;
 
 const mimeTypes = {
