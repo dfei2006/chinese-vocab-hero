@@ -98,7 +98,6 @@ h2 {
   display: block;
 }
 
-.upload-zone,
 .done-panel {
   min-height: calc(100vh - 156px);
   display: flex;
@@ -107,17 +106,23 @@ h2 {
   gap: 18px;
 }
 
-.upload-zone h2,
 .done-panel h2 {
   font-size: clamp(2.2rem, 10vw, 5rem);
   line-height: 0.95;
 }
 
-.upload-zone p,
 .done-panel p {
   color: var(--muted);
   font-size: 1.08rem;
   line-height: 1.5;
+}
+
+.upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding-top: 8px;
 }
 
 .saved-batches {
@@ -251,45 +256,6 @@ h2 {
 .batch-copy span {
   color: var(--muted);
   font-weight: 800;
-}
-
-.upload-art {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(54px, 1fr));
-  gap: 10px;
-  width: min(100%, 420px);
-}
-
-.upload-art span {
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: 5px 5px 0 var(--ink);
-  color: var(--ink);
-  font-size: clamp(2rem, 10vw, 4rem);
-  font-weight: 900;
-}
-
-.upload-art span:nth-child(1) {
-  background: #c94633;
-  color: white;
-}
-
-.upload-art span:nth-child(2) {
-  background: #4d849e;
-  color: white;
-}
-
-.upload-art span:nth-child(3) {
-  background: #eab45f;
-}
-
-.upload-art span:nth-child(4) {
-  background: #6f8a73;
-  color: white;
 }
 
 .primary-action,
