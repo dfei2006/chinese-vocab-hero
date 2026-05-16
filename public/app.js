@@ -1,5 +1,12 @@
 const storageKey = "chinese-vocab-hero-state-v1";
 const heroes = ["Superman", "Spider-Man", "Transformers", "Nezha", "Pikachu"];
+const chatUnlockCorrect = 3;
+const celebrationLines = [
+  "太棒了！这个词读得很有力量！",
+  "好功夫！你的中文又进步了！",
+  "读对啦！继续保持，小英雄！",
+  "漂亮！这个发音很精神！"
+];
 
 const els = {
   statusStrip: document.querySelector("#statusStrip"),
@@ -20,7 +27,14 @@ const els = {
   currentPinyin: document.querySelector("#currentPinyin"),
   listenWordButton: document.querySelector("#listenWordButton"),
   recordButton: document.querySelector("#recordButton"),
+  coachLine: document.querySelector("#coachLine"),
   feedbackBox: document.querySelector("#feedbackBox"),
+  chatButton: document.querySelector("#chatButton"),
+  chatPanel: document.querySelector("#chatPanel"),
+  chatMessages: document.querySelector("#chatMessages"),
+  chatForm: document.querySelector("#chatForm"),
+  chatInput: document.querySelector("#chatInput"),
+  chatSendButton: document.querySelector("#chatSendButton"),
   sentenceButton: document.querySelector("#sentenceButton"),
   sentencePanel: document.querySelector("#sentencePanel"),
   sentenceHero: document.querySelector("#sentenceHero"),
@@ -50,7 +64,9 @@ function freshState() {
     items: [],
     currentIndex: 0,
     correct: 0,
-    attempts: 0
+    attempts: 0,
+    chatOpen: false,
+    chatHistory: []
   };
 }
 
@@ -223,10 +239,36 @@ function renderPractice() {
   els.scorePill.textContent = `${state.correct} ✓`;
   els.currentWord.textContent = item.word || "字";
   els.currentPinyin.textContent = item.displayPinyin || item.pinyin || "";
+  renderCoach();
   renderFeedback(item.lastResult);
   els.feedbackBox.className = `feedback ${item.lastResult?.ok ? "good" : item.lastResult ? "try" : ""}`;
   renderSentence(item);
   saveState();
+}
+
+function isChatUnlocked() {
+  return state.correct >= chatUnlockCorrect;
+}
+
+function remainingForChat() {
+  return Math.max(0, chatUnlockCorrect - state.correct);
+}
+
+function renderCoach() {
+  const remaining = remainingForChat();
+  if (isChatUnlocked()) {
+    els.coachLine.textContent = state.chatOpen ? "来，跟教练聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
+    els.chatButton.textContent = "和教练聊天";
+    els.chatButton.classList.remove("locked");
+    els.chatButton.setAttribute("aria-disabled", "false");
+  } else {
+    els.coachLine.textContent = `再读对 ${remaining} 个词，就能打开聊天。`;
+    els.chatButton.textContent = `聊天 ${state.correct} / ${chatUnlockCorrect}`;
+    els.chatButton.classList.add("locked");
+    els.chatButton.setAttribute("aria-disabled", "true");
+  }
+  els.chatPanel.classList.toggle("hidden", !state.chatOpen || !isChatUnlocked());
+  renderChatMessages();
 }
 
 function renderFeedback(result) {
@@ -275,6 +317,16 @@ async function playTts(payload) {
   activeAudioUrl = URL.createObjectURL(blob);
   const audio = new Audio(activeAudioUrl);
   await audio.play();
+}
+
+async function playCoachLine(text) {
+  els.coachLine.textContent = text;
+  await playTts({
+    mode: "sentence",
+    text,
+    word: getCurrentItem()?.word,
+    pinyin: getCurrentItem()?.pinyin
+  });
 }
 
 async function listenToCurrentWord() {
@@ -466,6 +518,10 @@ async function handleTranscript(item, text) {
   }
   renderPractice();
   setStatus(ok ? "读对了，点“造句”听一句好玩的。" : "先点“造句”听一句，再试下一个。");
+  if (ok) {
+    const line = celebrationLines[Math.floor(Math.random() * celebrationLines.length)];
+    playCoachLine(line).catch((error) => setStatus(error.message));
+  }
 }
 
 async function revealSentence(item) {
@@ -531,8 +587,84 @@ function makeLocalSentence(item) {
   return { hero, ...templates[hero] };
 }
 
+function studiedItemsForChat() {
+  return state.items
+    .slice(0, Math.max(state.currentIndex + 1, 1))
+    .map((item) => ({
+      word: item.word,
+      pinyin: item.pinyin,
+      displayPinyin: item.displayPinyin,
+      completed: Boolean(item.completed),
+      lastOk: Boolean(item.lastResult?.ok)
+    }));
+}
+
+function renderChatMessages() {
+  els.chatMessages.innerHTML = "";
+  for (const turn of state.chatHistory.slice(-12)) {
+    const bubble = document.createElement("div");
+    bubble.className = `chat-bubble ${turn.role === "kid" ? "kid" : "coach"}`;
+    bubble.textContent = turn.text;
+    els.chatMessages.append(bubble);
+  }
+  els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+}
+
+async function toggleChat() {
+  if (!isChatUnlocked()) {
+    const remaining = remainingForChat();
+    const line = `还差 ${remaining} 个词。再读对 ${remaining} 个，就能和教练聊天！`;
+    try {
+      await playCoachLine(line);
+    } catch (error) {
+      setStatus(error.message);
+    }
+    return;
+  }
+
+  state.chatOpen = !state.chatOpen;
+  saveState();
+  renderPractice();
+}
+
+async function sendChatMessage(event) {
+  event.preventDefault();
+  if (!isChatUnlocked()) return toggleChat();
+
+  const message = els.chatInput.value.trim();
+  if (!message) return;
+
+  const kidTurn = { role: "kid", text: message };
+  state.chatHistory.push(kidTurn);
+  els.chatInput.value = "";
+  els.chatSendButton.disabled = true;
+  saveState();
+  renderChatMessages();
+
+  try {
+    setStatus("教练正在想...");
+    const { reply } = await apiJson("/api/chat", {
+      message,
+      studiedItems: studiedItemsForChat(),
+      currentWord: getCurrentItem(),
+      history: state.chatHistory
+    });
+    const coachTurn = { role: "coach", text: reply };
+    state.chatHistory.push(coachTurn);
+    saveState();
+    renderChatMessages();
+    await playCoachLine(reply);
+    setStatus("");
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    els.chatSendButton.disabled = false;
+  }
+}
+
 function nextWord() {
   state.currentIndex += 1;
+  state.chatOpen = false;
   if (state.currentIndex >= state.items.length) {
     renderDone();
     showView("done");
@@ -551,6 +683,8 @@ function restartPractice() {
   state.currentIndex = 0;
   state.correct = 0;
   state.attempts = 0;
+  state.chatOpen = false;
+  state.chatHistory = [];
   state.items = state.items.map((item) => ({ ...item, completed: false, lastResult: null, sentenceRevealed: false }));
   saveState();
   renderPractice();
@@ -611,6 +745,8 @@ els.addWordButton.addEventListener("click", addWordRow);
 els.startButton.addEventListener("click", startPractice);
 els.listenWordButton.addEventListener("click", listenToCurrentWord);
 els.recordButton.addEventListener("click", recordPronunciation);
+els.chatButton.addEventListener("click", toggleChat);
+els.chatForm.addEventListener("submit", sendChatMessage);
 els.sentenceButton.addEventListener("click", () => {
   const item = getCurrentItem();
   if (item) revealSentence(item);

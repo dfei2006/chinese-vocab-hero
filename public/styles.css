@@ -326,6 +326,48 @@ h2 {
   gap: 10px;
 }
 
+.coach-card {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #fff6d8;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.coach-portrait {
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background:
+    linear-gradient(135deg, #f5bd28 0 45%, #f05a4f 45% 100%);
+  color: var(--ink);
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.coach-name {
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.coach-copy p + p {
+  margin-top: 4px;
+}
+
+#coachLine {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .feedback {
   min-height: 64px;
   margin-top: 12px;
@@ -387,6 +429,69 @@ h2 {
   font-size: 1.35rem;
 }
 
+.chat-toggle {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.chat-toggle.locked {
+  background: #f2eee4;
+  color: var(--muted);
+}
+
+.chat-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 2px solid var(--blue);
+  border-radius: 8px;
+  background: #eef5ff;
+}
+
+.chat-messages {
+  max-height: 240px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 2px;
+}
+
+.chat-bubble {
+  width: fit-content;
+  max-width: 86%;
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  color: var(--ink);
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.chat-bubble.kid {
+  justify-self: end;
+  background: #dff0ff;
+}
+
+.chat-bubble.coach {
+  justify-self: start;
+  background: #fffdf8;
+}
+
+.chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chat-form input {
+  min-width: 0;
+  min-height: 48px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+}
+
 .sentence-panel {
   margin-top: 14px;
   padding: 16px;
@@ -433,6 +538,20 @@ h2 {
 
   .practice-actions {
     flex-direction: column;
+  }
+
+  .coach-card {
+    grid-template-columns: 58px 1fr;
+  }
+
+  .coach-portrait {
+    width: 58px;
+    height: 58px;
+    font-size: 1.65rem;
+  }
+
+  .chat-form {
+    grid-template-columns: 1fr;
   }
 
   .secondary-action,

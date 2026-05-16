@@ -67,7 +67,25 @@
           <button class="record-action" id="recordButton" type="button">按下录音</button>
         </div>
 
+        <section class="coach-card" aria-label="Practice coach">
+          <div class="coach-portrait" aria-hidden="true">教</div>
+          <div class="coach-copy">
+            <p class="coach-name">功夫教练</p>
+            <p id="coachLine">我会听你读词，也会陪你聊天。</p>
+          </div>
+        </section>
+
         <div class="feedback" id="feedbackBox" aria-live="polite"></div>
+
+        <button class="secondary-action full chat-toggle" id="chatButton" type="button" aria-disabled="true">聊天 0 / 3</button>
+
+        <section class="chat-panel hidden" id="chatPanel" aria-label="Coach chat">
+          <div class="chat-messages" id="chatMessages"></div>
+          <form class="chat-form" id="chatForm">
+            <input id="chatInput" type="text" autocomplete="off" placeholder="跟教练说一句话">
+            <button class="primary-action" id="chatSendButton" type="submit">发送</button>
+          </form>
+        </section>
 
         <button class="primary-action full sentence-action hidden" id="sentenceButton" type="button">造句</button>
 

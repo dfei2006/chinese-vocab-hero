@@ -124,6 +124,34 @@ async function callOpenAiResponses(payload) {
   return parseJsonText(extractOutputText(responseJson));
 }
 
+async function callOpenAiText(prompt, maxTokens = 500) {
+  const apiKey = requireEnv("OPENAI_API_KEY");
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model: openAiTextModel,
+        max_output_tokens: maxTokens,
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }]
+      })
+    });
+  } catch {
+    throw new UserError("Cannot reach OpenAI from this network. Check your connection or VPN.", 502);
+  }
+
+  const responseJson = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new UserError(responseJson.error?.message || "OpenAI request failed.", response.status);
+  }
+
+  return extractOutputText(responseJson).trim();
+}
+
 function extractAnthropicText(responseJson) {
   return (responseJson.content || [])
     .filter((part) => part.type === "text" && part.text)
@@ -171,6 +199,23 @@ async function callAnthropicMessages(payload, { parseJson = true } = {}) {
   } catch {
     throw new UserError("Anthropic returned an unreadable worksheet result. Try a clearer photo or use manual entry.", 502);
   }
+}
+
+async function callLanguageText({ prompt, maxTokens = 500 }) {
+  const provider = preferredLanguageProvider();
+
+  if (provider === "anthropic") {
+    const responseJson = await callAnthropicMessages({
+      model: anthropicModel,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: [{ type: "text", text: prompt }] }]
+    }, { parseJson: false });
+    return extractAnthropicText(responseJson).trim();
+  }
+
+  if (provider === "openai") return callOpenAiText(prompt, maxTokens);
+
+  throw new UserError("Add ANTHROPIC_API_KEY or OPENAI_API_KEY for coach chat.", 400);
 }
 
 function preferredLanguageProvider() {
@@ -352,6 +397,46 @@ Rules:
     pinyin: String(result.pinyin || "").trim(),
     english: String(result.english || "").trim()
   });
+}
+
+async function handleChat(req, res) {
+  const { message, studiedItems = [], currentWord, history = [] } = await readJson(req, 512 * 1024);
+  if (!message?.trim()) throw new UserError("Type a message for the coach first.");
+
+  const vocabLines = studiedItems
+    .slice(0, 30)
+    .map((item, index) => `${index + 1}. ${item.word} (${item.pinyin || item.displayPinyin || ""})${item.completed ? " practiced" : ""}`)
+    .join("\n");
+
+  const recentChat = history
+    .slice(-6)
+    .map((turn) => `${turn.role === "kid" ? "Kid" : "Coach"}: ${turn.text}`)
+    .join("\n");
+
+  const prompt = `
+You are an original upbeat Mandarin "hero coach" for a 6-10 year old practicing Chinese vocabulary.
+Do not claim to be any real person, celebrity, actor, or character.
+Speak in simple Mandarin Chinese, with a warm, playful coach energy.
+Keep replies under 45 Chinese characters unless the kid asks for a story.
+Use the vocabulary the child has studied when it fits naturally.
+If correcting Chinese, be gentle and concrete.
+Do not use emoji, markdown, stage directions, or sound effects.
+
+Studied vocabulary:
+${vocabLines || "None yet."}
+
+Current word: ${currentWord?.word || "none"} (${currentWord?.pinyin || ""})
+
+Recent chat:
+${recentChat || "No chat yet."}
+
+Kid says: ${message}
+
+Return only the coach reply text in Mandarin Chinese.
+`.trim();
+
+  const reply = await callLanguageText({ prompt, maxTokens: 500 });
+  sendJson(res, 200, { reply: reply || "好，我们继续练中文！" });
 }
 
 function escapeXml(value) {
@@ -703,6 +788,7 @@ async function handleApi(req, res) {
 
   if (url.pathname === "/api/ocr") return handleOcr(req, res);
   if (url.pathname === "/api/sentence") return handleSentence(req, res);
+  if (url.pathname === "/api/chat") return handleChat(req, res);
   if (url.pathname === "/api/tts") return handleTts(req, res);
   if (url.pathname === "/api/transcribe") return handleTranscribe(req, res);
 
