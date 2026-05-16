@@ -258,11 +258,11 @@ function renderCoach() {
   const remaining = remainingForChat();
   if (isChatUnlocked()) {
     els.coachLine.textContent = state.chatOpen ? "来，跟教练聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
-    els.chatButton.textContent = "和教练聊天";
+    els.chatButton.textContent = "跟我聊天";
     els.chatButton.classList.remove("locked");
     els.chatButton.setAttribute("aria-disabled", "false");
   } else {
-    els.coachLine.textContent = `再读对 ${remaining} 个词，就能打开聊天。`;
+    els.coachLine.textContent = `再读对 ${remaining} 个词，就能跟我聊天。`;
     els.chatButton.textContent = `聊天 ${state.correct} / ${chatUnlockCorrect}`;
     els.chatButton.classList.add("locked");
     els.chatButton.setAttribute("aria-disabled", "true");
@@ -615,7 +615,7 @@ function renderChatMessages() {
 async function toggleChat() {
   if (!isChatUnlocked()) {
     const remaining = remainingForChat();
-    const line = `还差 ${remaining} 个词。再读对 ${remaining} 个，就能和教练聊天！`;
+    const line = `还差 ${remaining} 个词。再读对 ${remaining} 个，就能跟我聊天！`;
     try {
       await playCoachLine(line);
     } catch (error) {
