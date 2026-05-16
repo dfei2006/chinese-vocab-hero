@@ -178,7 +178,7 @@ function isKidView() {
 
 function renderModeToggle() {
   const kidView = isKidView();
-  els.adminToggleButton.textContent = kidView ? "⚙" : "孩";
+  els.adminToggleButton.textContent = kidView ? "设置" : "练习";
   els.adminToggleButton.title = kidView ? "家长设置" : "儿童界面";
   els.adminToggleButton.setAttribute("aria-label", kidView ? "家长设置" : "儿童界面");
   els.adminToggleButton.classList.toggle("active", !kidView);
