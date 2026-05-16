@@ -30,9 +30,9 @@ const els = {
   currentPinyin: document.querySelector("#currentPinyin"),
   listenWordButton: document.querySelector("#listenWordButton"),
   recordButton: document.querySelector("#recordButton"),
+  coachCard: document.querySelector("#coachCard"),
   coachLine: document.querySelector("#coachLine"),
   feedbackBox: document.querySelector("#feedbackBox"),
-  chatButton: document.querySelector("#chatButton"),
   chatPanel: document.querySelector("#chatPanel"),
   chatMessages: document.querySelector("#chatMessages"),
   chatForm: document.querySelector("#chatForm"),
@@ -365,16 +365,14 @@ function remainingForChat() {
 
 function renderCoach() {
   const remaining = remainingForChat();
+  const unlocked = isChatUnlocked();
+  els.coachCard.classList.toggle("locked", !unlocked);
+  els.coachCard.setAttribute("aria-disabled", String(!unlocked));
+  els.coachCard.setAttribute("aria-label", unlocked ? "跟我聊天" : `再读对 ${remaining} 个词，就能跟我聊天`);
   if (isChatUnlocked()) {
     els.coachLine.textContent = state.chatOpen ? "来，跟教练聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
-    els.chatButton.textContent = "跟我聊天";
-    els.chatButton.classList.remove("locked");
-    els.chatButton.setAttribute("aria-disabled", "false");
   } else {
     els.coachLine.textContent = `再读对 ${remaining} 个词，就能跟我聊天。`;
-    els.chatButton.textContent = `聊天 ${state.correct} / ${chatUnlockCorrect}`;
-    els.chatButton.classList.add("locked");
-    els.chatButton.setAttribute("aria-disabled", "true");
   }
   els.chatPanel.classList.toggle("hidden", !state.chatOpen || !isChatUnlocked());
   renderChatMessages();
@@ -860,7 +858,12 @@ els.addWordButton.addEventListener("click", addWordRow);
 els.startButton.addEventListener("click", startPractice);
 els.listenWordButton.addEventListener("click", listenToCurrentWord);
 els.recordButton.addEventListener("click", recordPronunciation);
-els.chatButton.addEventListener("click", toggleChat);
+els.coachCard.addEventListener("click", toggleChat);
+els.coachCard.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  toggleChat();
+});
 els.chatForm.addEventListener("submit", sendChatMessage);
 els.sentenceButton.addEventListener("click", () => {
   const item = getCurrentItem();

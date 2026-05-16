@@ -411,6 +411,22 @@ h2 {
   border-radius: 8px;
   background: #fff6d8;
   box-shadow: 4px 4px 0 var(--ink);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.coach-card.locked {
+  background: #fff6d8;
+}
+
+.coach-card:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.coach-card:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
 }
 
 .coach-portrait {
@@ -490,16 +506,6 @@ h2 {
   margin-top: 12px;
   min-height: 58px;
   font-size: 1.35rem;
-}
-
-.chat-toggle {
-  width: 100%;
-  margin-top: 12px;
-}
-
-.chat-toggle.locked {
-  background: #f2eee4;
-  color: var(--muted);
 }
 
 .chat-panel {

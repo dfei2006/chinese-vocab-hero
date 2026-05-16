@@ -70,7 +70,7 @@
           <button class="record-action" id="recordButton" type="button">按下录音</button>
         </div>
 
-        <section class="coach-card" aria-label="Practice coach">
+        <section class="coach-card" id="coachCard" role="button" tabindex="0" aria-label="跟我聊天">
           <img class="coach-portrait" src="/coach.jpg" alt="" onerror="this.hidden = true">
           <div class="coach-copy">
             <p id="coachLine">我会听你读词，也会陪你聊天。</p>
@@ -78,8 +78,6 @@
         </section>
 
         <div class="feedback" id="feedbackBox" aria-live="polite"></div>
-
-        <button class="secondary-action full chat-toggle" id="chatButton" type="button" aria-disabled="true">聊天 0 / 3</button>
 
         <section class="chat-panel hidden" id="chatPanel" aria-label="Coach chat">
           <div class="chat-messages" id="chatMessages"></div>
