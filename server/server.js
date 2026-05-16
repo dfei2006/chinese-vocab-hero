@@ -886,10 +886,21 @@ ${vocabLines || "暂无。"}
 
 function realtimeStartSessionPayload(context) {
   return {
+    asr: {
+      audio_info: {
+        channel: 1,
+        format: "pcm",
+        sample_rate: 16000
+      },
+      extra: {
+        end_smooth_window_ms: 900,
+        enable_asr_twopass: true
+      }
+    },
     tts: {
       audio_config: {
         channel: 1,
-        format: "pcm",
+        format: "pcm_s16le",
         sample_rate: 24000
       },
       speaker: realtimeSpeaker
@@ -899,7 +910,11 @@ function realtimeStartSessionPayload(context) {
       system_role: realtimeSystemRole(context),
       dialog_id: context.dialogId || crypto.randomUUID(),
       speaking_style: "说话自然、有活力，像在面对面鼓励孩子练中文。语速稍慢，句子短。",
-      extra: { strict_audit: false }
+      extra: {
+        strict_audit: false,
+        input_mod: "audio",
+        model: "1.2.1.1"
+      }
     }
   };
 }

@@ -803,11 +803,16 @@ function floatToInt16Buffer(input) {
   return buffer;
 }
 
-function base64ToFloat32(base64) {
+function base64Pcm16ToFloat32(base64) {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return new Float32Array(bytes.buffer);
+  const view = new DataView(bytes.buffer);
+  const samples = new Float32Array(bytes.byteLength / 2);
+  for (let i = 0; i < samples.length; i += 1) {
+    samples[i] = view.getInt16(i * 2, true) / 0x8000;
+  }
+  return samples;
 }
 
 function playRealtimeAudioChunk(samples, sampleRate) {
@@ -845,7 +850,7 @@ async function startRealtimeChat() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    const processor = audioContext.createScriptProcessor(1024, 1, 1);
     const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/realtime`);
     socket.binaryType = "arraybuffer";
 
@@ -891,7 +896,7 @@ async function startRealtimeChat() {
       } else if (message.type === "replyDone") {
         finishLiveBubbles();
       } else if (message.type === "audio") {
-        playRealtimeAudioChunk(base64ToFloat32(message.data), message.sampleRate || 24000);
+        playRealtimeAudioChunk(base64Pcm16ToFloat32(message.data), message.sampleRate || 24000);
       } else if (message.type === "error") {
         const errorMessage = message.message || "实时聊天断开了。";
         if (liveChat) liveChat.lastError = errorMessage;
@@ -905,7 +910,7 @@ async function startRealtimeChat() {
     processor.onaudioprocess = (event) => {
       if (!liveChat || socket.readyState !== WebSocket.OPEN) return;
       const input = event.inputBuffer.getChannelData(0);
-      const samples = downsampleFloat32(input, audioContext.sampleRate, 24000);
+      const samples = downsampleFloat32(input, audioContext.sampleRate, 16000);
       socket.send(floatToInt16Buffer(samples));
     };
   } catch (error) {
