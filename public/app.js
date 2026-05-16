@@ -373,7 +373,7 @@ function renderCoach() {
   els.coachCard.setAttribute("aria-label", unlocked ? `跟我聊天，${progressText}` : `再读对 ${remaining} 个词，就能跟我聊天，${progressText}`);
   els.coachProgress.textContent = progressText;
   if (isChatUnlocked()) {
-    els.coachLine.textContent = state.chatOpen ? "来，跟教练聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
+    els.coachLine.textContent = state.chatOpen ? "来，跟成龙聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
   } else {
     els.coachLine.textContent = `再读对 ${remaining} 个词，就能跟我聊天。`;
   }
