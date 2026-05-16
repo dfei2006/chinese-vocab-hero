@@ -112,7 +112,7 @@ VOLCENGINE_TTS_ACCESS_KEY=
 VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
 VOLCENGINE_TTS_ACCESS_TOKEN=
 VOLCENGINE_TTS_CLUSTER=volcano_tts
-VOLCENGINE_TTS_VOICE_TYPE=zh_female_wanqudashu_moon_bigtts
+VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
 
 HTTPS_PROXY=
 NO_PROXY=localhost,127.0.0.1
@@ -127,7 +127,7 @@ TTS_PROVIDER=volcengine
 VOLCENGINE_TTS_APP_ID=your_app_id
 VOLCENGINE_TTS_ACCESS_KEY=your_api_key
 VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
-VOLCENGINE_TTS_VOICE_TYPE=your_voice_type
+VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
 ```
 
 To force Azure:
@@ -207,8 +207,8 @@ If audio fails:
 
 - Check `TTS_PROVIDER`.
 - For Azure, check `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`.
-- For 火山, check `VOLCENGINE_TTS_APP_ID`, `VOLCENGINE_TTS_ACCESS_TOKEN`, `VOLCENGINE_TTS_CLUSTER`, and `VOLCENGINE_TTS_VOICE_TYPE`.
-- If 火山 says the voice is invalid, copy a voice type from your 火山 console examples.
+- For 火山 API Key mode, check `VOLCENGINE_TTS_APP_ID`, `VOLCENGINE_TTS_ACCESS_KEY`, `VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0`, and `VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts`.
+- If 火山 says the voice is invalid or mismatched, the voice type and resource ID do not belong to the same model grant.
 
 If recording fails:
 

@@ -15,7 +15,7 @@ const openAiTextModel = process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini";
 const openAiTranscribeModel = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
 const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 const azureVoice = process.env.AZURE_SPEECH_VOICE || "zh-CN-XiaoxiaoMultilingualNeural";
-const volcengineVoice = process.env.VOLCENGINE_TTS_VOICE_TYPE || "zh_female_wanqudashu_moon_bigtts";
+const volcengineVoice = process.env.VOLCENGINE_TTS_VOICE_TYPE || "zh_female_shuangkuaisisi_uranus_bigtts";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -545,10 +545,10 @@ function parseVolcengineV3Audio(text) {
     try {
       const event = JSON.parse(jsonText);
       const base64 = event.data || event.audio || event.result?.audio || event.result?.data;
-      if (base64) chunks.push(Buffer.from(base64, "base64"));
+      if (typeof base64 === "string" && base64) chunks.push(Buffer.from(base64, "base64"));
       const message = event.message || event.error?.message || event.BaseResp?.StatusMessage;
       const code = event.code ?? event.BaseResp?.StatusCode;
-      if (!base64 && code && code !== 0 && code !== 3000) {
+      if (!base64 && code && code !== 0 && code !== 3000 && code !== 20000000) {
         throw new UserError(message || `Volcengine TTS failed with code ${code}.`, 400);
       }
     } catch (error) {
