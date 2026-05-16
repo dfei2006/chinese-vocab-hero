@@ -19,7 +19,8 @@ const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514"
 const azureVoice = process.env.AZURE_SPEECH_VOICE || "zh-CN-XiaoxiaoMultilingualNeural";
 const volcengineVoice = process.env.VOLCENGINE_TTS_VOICE_TYPE || "zh_female_shuangkuaisisi_uranus_bigtts";
 const realtimeAccessToken = process.env.VOLCENGINE_REALTIME_ACCESS_TOKEN || process.env.VOLCENGINE_REALTIME_ACCESS_KEY;
-const realtimeAppId = process.env.VOLCENGINE_REALTIME_APP_ID;
+const realtimeAppId = process.env.VOLCENGINE_REALTIME_APP_ID || process.env.VOLCENGINE_TTS_APP_ID;
+const realtimeAppIdSource = process.env.VOLCENGINE_REALTIME_APP_ID ? "realtime" : process.env.VOLCENGINE_TTS_APP_ID ? "tts" : "";
 const realtimeSpeaker = process.env.VOLCENGINE_REALTIME_SPEAKER || volcengineVoice;
 
 const mimeTypes = {
@@ -922,6 +923,23 @@ async function openVolcRealtimeSocket(context) {
     await new Promise((resolve, reject) => {
       upstream.once("open", resolve);
       upstream.once("error", reject);
+      upstream.once("unexpected-response", (_req, res) => {
+        const logId = res.headers["x-tt-logid"] || res.headers["x-tt-log-id"];
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+          if (body.length > 500) body = body.slice(0, 500);
+        });
+        res.on("end", () => {
+          const details = [
+            `HTTP ${res.statusCode}`,
+            logId ? `logid ${logId}` : "",
+            body.trim() ? body.trim() : ""
+          ].filter(Boolean).join(" - ");
+          reject(new Error(details));
+        });
+      });
     });
   } catch (error) {
     throw new UserError(`Volcengine realtime voice rejected the connection. Check VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_KEY. ${error.message || ""}`.trim(), 502);
@@ -1000,6 +1018,7 @@ async function handleApi(req, res) {
       azureVoice,
       volcengineConfigured: Boolean(process.env.VOLCENGINE_TTS_APP_ID && (process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY || process.env.VOLCENGINE_TTS_ACCESS_TOKEN)),
       volcengineRealtimeConfigured: Boolean(realtimeAppId && realtimeAccessToken),
+      volcengineRealtimeAppIdSource: realtimeAppIdSource,
       volcengineRealtimeMissing: {
         appId: !realtimeAppId,
         accessKey: !realtimeAccessToken

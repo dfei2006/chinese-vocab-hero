@@ -146,7 +146,7 @@ VOLCENGINE_REALTIME_ACCESS_KEY=your_realtime_api_key
 VOLCENGINE_REALTIME_SPEAKER=S_nNepq2X22
 ```
 
-`VOLCENGINE_REALTIME_ACCESS_TOKEN` is also accepted as an older alias, but the app now prefers `VOLCENGINE_REALTIME_ACCESS_KEY` because 火山's realtime docs send it as the `X-Api-Access-Key` header. `VOLCENGINE_REALTIME_SPEAKER` can be the same cloned voice ID you use for TTS, as long as that voice is available to the realtime model. The realtime APP ID is required separately because 火山 sends it as the `X-Api-App-ID` header.
+`VOLCENGINE_REALTIME_ACCESS_TOKEN` is also accepted as an older alias, but the app now prefers `VOLCENGINE_REALTIME_ACCESS_KEY` because 火山's realtime docs send it as the `X-Api-Access-Key` header. `VOLCENGINE_REALTIME_SPEAKER` can be the same cloned voice ID you use for TTS, as long as that voice is available to the realtime model. If `VOLCENGINE_REALTIME_APP_ID` is blank, the app reuses `VOLCENGINE_TTS_APP_ID` for the realtime `X-Api-App-ID` header.
 
 To force Azure:
 
