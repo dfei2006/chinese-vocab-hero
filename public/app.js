@@ -521,6 +521,8 @@ async function handleTranscript(item, text) {
   if (ok) {
     const line = celebrationLines[Math.floor(Math.random() * celebrationLines.length)];
     playCoachLine(line).catch((error) => setStatus(error.message));
+  } else {
+    playCoachLine("差一点，再试一次，或者看看拼音。").catch((error) => setStatus(error.message));
   }
 }
 
