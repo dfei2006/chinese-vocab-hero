@@ -471,10 +471,10 @@ async function synthesizeWithAzure({ text, word, pinyin, mode }) {
   };
 }
 
-async function synthesizeWithVolcengine({ text }) {
+async function synthesizeWithVolcengine({ text, resourceIdOverride }) {
   const appId = requireEnv("VOLCENGINE_TTS_APP_ID");
   const accessKey = process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY;
-  if (accessKey) return synthesizeWithVolcengineV3({ text, appId, accessKey });
+  if (accessKey) return synthesizeWithVolcengineV3({ text, appId, accessKey, resourceIdOverride });
 
   const token = requireEnv("VOLCENGINE_TTS_ACCESS_TOKEN");
   const cluster = process.env.VOLCENGINE_TTS_CLUSTER || "volcano_tts";
@@ -558,8 +558,8 @@ function parseVolcengineV3Audio(text) {
   return Buffer.concat(chunks);
 }
 
-async function synthesizeWithVolcengineV3({ text, appId, accessKey }) {
-  const resourceId = process.env.VOLCENGINE_TTS_RESOURCE_ID || "seed-tts-2.0";
+async function synthesizeWithVolcengineV3({ text, appId, accessKey, resourceIdOverride }) {
+  const resourceId = resourceIdOverride || process.env.VOLCENGINE_TTS_RESOURCE_ID || "seed-tts-2.0";
   const endpoint = process.env.VOLCENGINE_TTS_V3_ENDPOINT || "https://openspeech.bytedance.com/api/v3/tts/unidirectional";
   const requestId = crypto.randomUUID();
   const payload = {
@@ -599,12 +599,12 @@ async function synthesizeWithVolcengineV3({ text, appId, accessKey }) {
     } catch {
       // Keep the raw message.
     }
-    throw new UserError(message || "Volcengine TTS V3 request failed.", response.status);
+    throw new UserError(`${message || "Volcengine TTS V3 request failed."} Resource ID: ${resourceId}.`, response.status);
   }
 
   const audio = parseVolcengineV3Audio(responseText);
   if (!audio.length) {
-    throw new UserError("Volcengine TTS V3 returned no audio. Check VOLCENGINE_TTS_RESOURCE_ID and VOLCENGINE_TTS_VOICE_TYPE.", 502);
+    throw new UserError(`Volcengine TTS V3 returned no audio. Resource ID: ${resourceId}. Check VOLCENGINE_TTS_RESOURCE_ID and VOLCENGINE_TTS_VOICE_TYPE.`, 502);
   }
 
   return {
@@ -614,7 +614,7 @@ async function synthesizeWithVolcengineV3({ text, appId, accessKey }) {
 }
 
 async function handleTts(req, res) {
-  const { text, word, pinyin, mode } = await readJson(req, 512 * 1024);
+  const { text, word, pinyin, mode, _testResourceId } = await readJson(req, 512 * 1024);
   if (!text) throw new UserError("There is no text to read aloud.");
 
   const provider = preferredTtsProvider();
@@ -622,7 +622,13 @@ async function handleTts(req, res) {
   if (provider === "azure") {
     result = await synthesizeWithAzure({ text, word, pinyin, mode });
   } else if (provider === "volcengine" || provider === "volc") {
-    result = await synthesizeWithVolcengine({ text, word, pinyin, mode });
+    result = await synthesizeWithVolcengine({
+      text,
+      word,
+      pinyin,
+      mode,
+      resourceIdOverride: process.env.NODE_ENV === "development" ? _testResourceId : undefined
+    });
   } else {
     throw new UserError("No TTS provider is configured. Set TTS_PROVIDER=volcengine with Volcengine credentials, or configure Azure Speech.", 400);
   }
