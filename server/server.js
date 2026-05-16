@@ -18,8 +18,8 @@ const openAiTranscribeModel = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-min
 const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 const azureVoice = process.env.AZURE_SPEECH_VOICE || "zh-CN-XiaoxiaoMultilingualNeural";
 const volcengineVoice = process.env.VOLCENGINE_TTS_VOICE_TYPE || "zh_female_shuangkuaisisi_uranus_bigtts";
+const realtimeAccessToken = process.env.VOLCENGINE_REALTIME_ACCESS_TOKEN || process.env.VOLCENGINE_REALTIME_ACCESS_KEY;
 const realtimeAppId = process.env.VOLCENGINE_REALTIME_APP_ID;
-const realtimeAccessToken = process.env.VOLCENGINE_REALTIME_ACCESS_TOKEN;
 const realtimeSpeaker = process.env.VOLCENGINE_REALTIME_SPEAKER || volcengineVoice;
 
 const mimeTypes = {
@@ -905,7 +905,7 @@ function realtimeStartSessionPayload(context) {
 
 async function openVolcRealtimeSocket(context) {
   if (!realtimeAppId || !realtimeAccessToken) {
-    throw new UserError("Volcengine realtime voice is not configured. Set VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_TOKEN.", 400);
+    throw new UserError("Volcengine realtime voice is not configured. Set VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_KEY.", 400);
   }
 
   const upstream = new WebSocket("wss://openspeech.bytedance.com/api/v3/realtime/dialogue", {
@@ -924,7 +924,7 @@ async function openVolcRealtimeSocket(context) {
       upstream.once("error", reject);
     });
   } catch (error) {
-    throw new UserError(`Volcengine realtime voice rejected the connection. Check VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_TOKEN. ${error.message || ""}`.trim(), 502);
+    throw new UserError(`Volcengine realtime voice rejected the connection. Check VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_KEY. ${error.message || ""}`.trim(), 502);
   }
 
   const sessionId = crypto.randomUUID();
@@ -1000,6 +1000,10 @@ async function handleApi(req, res) {
       azureVoice,
       volcengineConfigured: Boolean(process.env.VOLCENGINE_TTS_APP_ID && (process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY || process.env.VOLCENGINE_TTS_ACCESS_TOKEN)),
       volcengineRealtimeConfigured: Boolean(realtimeAppId && realtimeAccessToken),
+      volcengineRealtimeMissing: {
+        appId: !realtimeAppId,
+        accessKey: !realtimeAccessToken
+      },
       volcengineVoice,
       realtimeSpeaker,
       ttsProvider: preferredTtsProvider()

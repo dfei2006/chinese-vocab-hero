@@ -830,7 +830,12 @@ async function startRealtimeChat() {
     return;
   }
   if (!capabilities.volcengineRealtimeConfigured) {
-    const message = "实时聊天还没配置好：需要填写火山端到端实时语音的 APP ID 和 API Key。";
+    const missing = [];
+    if (capabilities.volcengineRealtimeMissing?.appId) missing.push("VOLCENGINE_REALTIME_APP_ID");
+    if (capabilities.volcengineRealtimeMissing?.accessKey) missing.push("VOLCENGINE_REALTIME_ACCESS_KEY");
+    const message = missing.length
+      ? `实时聊天还没配置好：缺少 ${missing.join(" 和 ")}。`
+      : "实时聊天还没配置好：需要填写火山端到端实时语音的 APP ID 和 API Key。";
     els.voiceChatHint.textContent = message;
     setStatus(message);
     return;

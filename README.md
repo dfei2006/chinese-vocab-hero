@@ -117,6 +117,8 @@ VOLCENGINE_TTS_CLUSTER=volcano_tts
 VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
 
 VOLCENGINE_REALTIME_APP_ID=
+VOLCENGINE_REALTIME_ACCESS_KEY=
+# Legacy alias also accepted by the app.
 VOLCENGINE_REALTIME_ACCESS_TOKEN=
 VOLCENGINE_REALTIME_SPEAKER=zh_female_shuangkuaisisi_uranus_bigtts
 
@@ -140,11 +142,11 @@ For the unlocked live voice chat, fill these from the 火山 **豆包端到端�
 
 ```bash
 VOLCENGINE_REALTIME_APP_ID=your_realtime_app_id
-VOLCENGINE_REALTIME_ACCESS_TOKEN=your_realtime_api_key
+VOLCENGINE_REALTIME_ACCESS_KEY=your_realtime_api_key
 VOLCENGINE_REALTIME_SPEAKER=S_nNepq2X22
 ```
 
-`VOLCENGINE_REALTIME_SPEAKER` can be the same cloned voice ID you use for TTS, as long as that voice is available to the realtime model. If these are blank, the app falls back to the TTS app ID/key, but 火山 may reject that with `401` unless the same app/key has the `volc.speech.dialog` realtime grant.
+`VOLCENGINE_REALTIME_ACCESS_TOKEN` is also accepted as an older alias, but the app now prefers `VOLCENGINE_REALTIME_ACCESS_KEY` because 火山's realtime docs send it as the `X-Api-Access-Key` header. `VOLCENGINE_REALTIME_SPEAKER` can be the same cloned voice ID you use for TTS, as long as that voice is available to the realtime model. The realtime APP ID is required separately because 火山 sends it as the `X-Api-App-ID` header.
 
 To force Azure:
 
@@ -238,7 +240,7 @@ If audio fails:
 If live voice chat says 火山 rejected the connection or shows `401`:
 
 - Check `VOLCENGINE_REALTIME_APP_ID`.
-- Check `VOLCENGINE_REALTIME_ACCESS_TOKEN`.
+- Check `VOLCENGINE_REALTIME_ACCESS_KEY`.
 - Make sure the key is from the **豆包端到端实时语音大模型** API access flow, not only the normal TTS page.
 - The realtime API uses the fixed resource grant `volc.speech.dialog`; the app/key must have that access.
 
