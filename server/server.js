@@ -107,6 +107,10 @@ function parseJsonText(text) {
   }
 }
 
+function normalizePinyinText(value) {
+  return String(value || "").trim().toLocaleLowerCase("zh-CN");
+}
+
 async function callOpenAiResponses(payload) {
   const apiKey = requireEnv("OPENAI_API_KEY");
   let response;
@@ -346,8 +350,8 @@ Rules:
         id: crypto.randomUUID(),
         number: Number(item.number || index + 1),
         word: String(item.word).trim(),
-        pinyin: String(item.pinyin).trim(),
-        displayPinyin: String(item.displayPinyin || item.pinyin).trim()
+        pinyin: normalizePinyinText(item.pinyin),
+        displayPinyin: normalizePinyinText(item.displayPinyin || item.pinyin)
       }))
   });
 }
@@ -401,7 +405,7 @@ Rules:
   sendJson(res, 200, {
     hero: chosenHero,
     sentence: String(result.sentence || "").trim(),
-    pinyin: String(result.pinyin || "").trim(),
+    pinyin: normalizePinyinText(result.pinyin),
     english: String(result.english || "").trim()
   });
 }

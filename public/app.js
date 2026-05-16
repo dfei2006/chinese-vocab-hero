@@ -108,6 +108,10 @@ function setStatus(message) {
   els.statusStrip.textContent = message || "";
 }
 
+function normalizePinyinText(value) {
+  return String(value || "").trim().toLocaleLowerCase("zh-CN");
+}
+
 function showView(name) {
   for (const view of [els.uploadView, els.reviewView, els.practiceView, els.doneView]) {
     view.classList.remove("active");
@@ -205,6 +209,8 @@ function prepareItemsForPractice(items) {
     ...item,
     id: item.id || crypto.randomUUID(),
     number: index + 1,
+    pinyin: normalizePinyinText(item.pinyin),
+    displayPinyin: normalizePinyinText(item.displayPinyin || item.pinyin),
     sentence: null,
     sentenceRevealed: false,
     completed: false,
@@ -219,8 +225,8 @@ function batchItemsFromState() {
       id: item.id || crypto.randomUUID(),
       number: index + 1,
       word: item.word.trim(),
-      pinyin: item.pinyin.trim(),
-      displayPinyin: (item.displayPinyin || item.pinyin).trim()
+      pinyin: normalizePinyinText(item.pinyin),
+      displayPinyin: normalizePinyinText(item.displayPinyin || item.pinyin)
     }));
 }
 
@@ -304,8 +310,9 @@ function renderReview() {
       saveState();
     });
     row.querySelector(".pinyin-input").addEventListener("input", (event) => {
-      item.pinyin = event.target.value.trim();
-      item.displayPinyin = event.target.value.trim();
+      item.pinyin = normalizePinyinText(event.target.value);
+      item.displayPinyin = normalizePinyinText(event.target.value);
+      event.target.value = item.pinyin;
       saveState();
     });
     row.querySelector(".delete-button").addEventListener("click", () => {
@@ -348,7 +355,7 @@ function renderPractice() {
   els.progressLabel.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
   els.scorePill.textContent = `${state.correct} ✓`;
   els.currentWord.textContent = item.word || "字";
-  els.currentPinyin.textContent = item.displayPinyin || item.pinyin || "";
+  els.currentPinyin.textContent = normalizePinyinText(item.displayPinyin || item.pinyin);
   renderCoach();
   renderFeedback(item.lastResult);
   els.feedbackBox.className = `feedback ${item.lastResult?.ok ? "good" : item.lastResult ? "try" : ""}`;
@@ -409,7 +416,7 @@ function renderSentence(item) {
   els.sentenceButton.classList.add("hidden");
   els.sentenceHero.textContent = item.sentence.hero;
   els.sentenceText.textContent = item.sentence.sentence;
-  els.sentencePinyin.textContent = item.sentence.pinyin;
+  els.sentencePinyin.textContent = normalizePinyinText(item.sentence.pinyin);
   els.sentencePanel.classList.remove("hidden");
   els.nextButton.classList.remove("hidden");
 }
@@ -685,31 +692,31 @@ async function revealSentence(item) {
 
 function makeLocalSentence(item) {
   const hero = heroes[Math.floor(Math.random() * heroes.length)];
-  const displayPinyin = item.displayPinyin || item.pinyin;
+  const displayPinyin = normalizePinyinText(item.displayPinyin || item.pinyin);
   const templates = {
     Superman: {
       sentence: `超人举起${item.word}飞走了。`,
-      pinyin: `Chāo rén jǔ qǐ ${displayPinyin} fēi zǒu le.`,
+      pinyin: `chāo rén jǔ qǐ ${displayPinyin} fēi zǒu le.`,
       english: `Superman lifted ${item.word} and flew away.`
     },
     "Spider-Man": {
       sentence: `蜘蛛侠用${item.word}荡秋千。`,
-      pinyin: `Zhī zhū xiá yòng ${displayPinyin} dàng qiū qiān.`,
+      pinyin: `zhī zhū xiá yòng ${displayPinyin} dàng qiū qiān.`,
       english: `Spider-Man used ${item.word} as a swing.`
     },
     Transformers: {
       sentence: `变形金刚把${item.word}变大了。`,
-      pinyin: `Biàn xíng jīn gāng bǎ ${displayPinyin} biàn dà le.`,
+      pinyin: `biàn xíng jīn gāng bǎ ${displayPinyin} biàn dà le.`,
       english: `The Transformer made ${item.word} huge.`
     },
     Nezha: {
       sentence: `哪吒踩着${item.word}转圈。`,
-      pinyin: `Né zhā cǎi zhe ${displayPinyin} zhuàn quān.`,
+      pinyin: `né zhā cǎi zhe ${displayPinyin} zhuàn quān.`,
       english: `Nezha spun around on ${item.word}.`
     },
     Pikachu: {
       sentence: `皮卡丘抱着${item.word}跳舞。`,
-      pinyin: `Pí kǎ qiū bào zhe ${displayPinyin} tiào wǔ.`,
+      pinyin: `pí kǎ qiū bào zhe ${displayPinyin} tiào wǔ.`,
       english: `Pikachu hugged ${item.word} and danced.`
     }
   };
@@ -970,7 +977,12 @@ function startManualEntry() {
 function startPractice() {
   state.items = state.items
     .filter((item) => item.word.trim() && item.pinyin.trim())
-    .map((item, index) => ({ ...item, number: index + 1 }));
+    .map((item, index) => ({
+      ...item,
+      number: index + 1,
+      pinyin: normalizePinyinText(item.pinyin),
+      displayPinyin: normalizePinyinText(item.displayPinyin || item.pinyin)
+    }));
 
   if (!state.items.length) {
     setStatus("先保留至少一个词。");
