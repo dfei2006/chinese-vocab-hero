@@ -279,6 +279,18 @@ h2 {
   background: var(--paper);
   box-shadow: var(--shadow);
   text-align: center;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.word-stage:focus-visible {
+  outline: 4px solid var(--yellow);
+  outline-offset: 5px;
+}
+
+.word-stage.success-pop {
+  animation: success-pop 520ms ease;
+  background: #f0ffe8;
 }
 
 .character {
@@ -296,27 +308,17 @@ h2 {
   color: var(--teal-dark);
   font-size: clamp(1.15rem, 5vw, 2rem);
   font-weight: 900;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+  user-select: none;
 }
 
-.hero-picker {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-  margin: 0 0 14px;
-}
-
-.hero-chip {
-  min-height: 48px;
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  background: var(--paper);
-  font-size: 0.9rem;
-  font-weight: 900;
-  overflow-wrap: anywhere;
-}
-
-.hero-chip.active {
-  background: #9bd7ff;
+.word-stage:hover .pinyin,
+.word-stage:focus-visible .pinyin,
+.word-stage.show-pinyin .pinyin {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .practice-actions {
@@ -325,21 +327,64 @@ h2 {
 }
 
 .feedback {
-  min-height: 44px;
+  min-height: 64px;
   margin-top: 12px;
+  padding: 12px 14px;
+  border: 2px solid transparent;
+  border-radius: 8px;
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.4;
 }
 
+.feedback strong,
+.feedback span {
+  display: block;
+}
+
+.feedback strong {
+  font-size: clamp(1.25rem, 5vw, 1.8rem);
+  line-height: 1.1;
+}
+
+.feedback span {
+  margin-top: 4px;
+}
+
 .feedback.good {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--green);
+  background: #eaffdf;
   color: var(--green);
   font-weight: 900;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.feedback.good::after {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 35%, #f5bd28 0 4px, transparent 5px),
+    radial-gradient(circle at 35% 15%, #f05a4f 0 4px, transparent 5px),
+    radial-gradient(circle at 82% 28%, #6bbce8 0 4px, transparent 5px),
+    radial-gradient(circle at 68% 82%, #8bd17c 0 4px, transparent 5px);
+  animation: confetti-pop 700ms ease forwards;
 }
 
 .feedback.try {
+  border-color: #e8a3a3;
+  background: #fff3f3;
   color: #9c2525;
   font-weight: 900;
+}
+
+.sentence-action {
+  margin-top: 12px;
+  min-height: 58px;
+  font-size: 1.35rem;
 }
 
 .sentence-panel {
@@ -386,10 +431,6 @@ h2 {
     padding: 8px;
   }
 
-  .hero-picker {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .practice-actions {
     flex-direction: column;
   }
@@ -397,5 +438,34 @@ h2 {
   .secondary-action,
   .record-action {
     width: 100%;
+  }
+}
+
+@keyframes success-pop {
+  0% {
+    transform: scale(1);
+    box-shadow: var(--shadow);
+  }
+  45% {
+    transform: scale(1.035);
+    box-shadow: 8px 8px 0 var(--green);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: var(--shadow);
+  }
+}
+
+@keyframes confetti-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
   }
 }

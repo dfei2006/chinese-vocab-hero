@@ -15,12 +15,13 @@ const els = {
   startButton: document.querySelector("#startButton"),
   progressLabel: document.querySelector("#progressLabel"),
   scorePill: document.querySelector("#scorePill"),
+  wordStage: document.querySelector("#wordStage"),
   currentWord: document.querySelector("#currentWord"),
   currentPinyin: document.querySelector("#currentPinyin"),
-  heroPicker: document.querySelector("#heroPicker"),
   listenWordButton: document.querySelector("#listenWordButton"),
   recordButton: document.querySelector("#recordButton"),
   feedbackBox: document.querySelector("#feedbackBox"),
+  sentenceButton: document.querySelector("#sentenceButton"),
   sentencePanel: document.querySelector("#sentencePanel"),
   sentenceHero: document.querySelector("#sentenceHero"),
   sentenceText: document.querySelector("#sentenceText"),
@@ -32,10 +33,10 @@ const els = {
 };
 
 let state = loadState();
-let selectedHero = state.selectedHero || heroes[0];
 let activeAudioUrl = null;
 let mediaRecorder = null;
 let recordingChunks = [];
+let lastRenderedIndex = -1;
 let capabilities = {
   openAiConfigured: false,
   anthropicConfigured: false,
@@ -49,8 +50,7 @@ function freshState() {
     items: [],
     currentIndex: 0,
     correct: 0,
-    attempts: 0,
-    selectedHero: heroes[0]
+    attempts: 0
   };
 }
 
@@ -65,7 +65,6 @@ function loadState() {
 }
 
 function saveState() {
-  state.selectedHero = selectedHero;
   localStorage.setItem(storageKey, JSON.stringify(state));
 }
 
@@ -144,6 +143,7 @@ async function handlePhotoChange(event) {
       ...item,
       number: index + 1,
       sentence: null,
+      sentenceRevealed: false,
       completed: false,
       lastResult: null
     }));
@@ -202,22 +202,6 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function renderHeroes() {
-  els.heroPicker.innerHTML = "";
-  heroes.forEach((hero) => {
-    const button = document.createElement("button");
-    button.className = `hero-chip ${hero === selectedHero ? "active" : ""}`;
-    button.type = "button";
-    button.textContent = hero;
-    button.addEventListener("click", () => {
-      selectedHero = hero;
-      saveState();
-      renderHeroes();
-    });
-    els.heroPicker.append(button);
-  });
-}
-
 function getCurrentItem() {
   return state.items[state.currentIndex];
 }
@@ -230,29 +214,45 @@ function renderPractice() {
     return;
   }
 
+  if (lastRenderedIndex !== state.currentIndex) {
+    els.wordStage.classList.remove("show-pinyin", "success-pop");
+    lastRenderedIndex = state.currentIndex;
+  }
+
   els.progressLabel.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
   els.scorePill.textContent = `${state.correct} ✓`;
   els.currentWord.textContent = item.word || "字";
   els.currentPinyin.textContent = item.displayPinyin || item.pinyin || "";
-  els.feedbackBox.textContent = item.lastResult ? resultText(item.lastResult) : "";
+  renderFeedback(item.lastResult);
   els.feedbackBox.className = `feedback ${item.lastResult?.ok ? "good" : item.lastResult ? "try" : ""}`;
   renderSentence(item);
-  renderHeroes();
   saveState();
 }
 
-function resultText(result) {
-  if (result.ok) return `好！我听到：${result.transcript}`;
-  return `差一点。我听到：${result.transcript || "没听清"}`;
-}
-
-function renderSentence(item) {
-  if (!item.sentence) {
-    els.sentencePanel.classList.add("hidden");
-    els.nextButton.classList.add("hidden");
+function renderFeedback(result) {
+  if (!result) {
+    els.feedbackBox.replaceChildren();
     return;
   }
 
+  const title = document.createElement("strong");
+  title.textContent = result.ok ? "读对啦！" : "差一点，再来一口气。";
+
+  const detail = document.createElement("span");
+  detail.textContent = `我听到：${result.transcript || "没听清"}`;
+
+  els.feedbackBox.replaceChildren(title, detail);
+}
+
+function renderSentence(item) {
+  if (!item.sentenceRevealed || !item.sentence) {
+    els.sentencePanel.classList.add("hidden");
+    els.nextButton.classList.add("hidden");
+    els.sentenceButton.classList.toggle("hidden", !item.lastResult);
+    return;
+  }
+
+  els.sentenceButton.classList.add("hidden");
   els.sentenceHero.textContent = item.sentence.hero;
   els.sentenceText.textContent = item.sentence.sentence;
   els.sentencePinyin.textContent = item.sentence.pinyin;
@@ -457,21 +457,26 @@ async function handleTranscript(item, text) {
   const ok = fuzzyMatches(item.word, text);
   item.lastResult = { ok, transcript: text };
   item.completed = true;
+  item.sentenceRevealed = false;
   state.attempts += 1;
   if (ok) state.correct += 1;
+  if (ok) {
+    els.wordStage.classList.remove("success-pop");
+    requestAnimationFrame(() => els.wordStage.classList.add("success-pop"));
+  }
   renderPractice();
-  await revealSentence(item);
+  setStatus(ok ? "读对了，点“造句”听一句好玩的。" : "先点“造句”听一句，再试下一个。");
 }
 
 async function revealSentence(item) {
   if (!item.sentence) {
-    setStatus("正在召唤英雄句子...");
+    setStatus("正在造句...");
+    els.sentenceButton.disabled = true;
     if (capabilities.languageProvider !== "local") {
       try {
         item.sentence = await apiJson("/api/sentence", {
           word: item.word,
-          pinyin: item.pinyin,
-          hero: selectedHero
+          pinyin: item.pinyin
         });
       } catch (error) {
         item.sentence = makeLocalSentence(item);
@@ -481,13 +486,20 @@ async function revealSentence(item) {
       item.sentence = makeLocalSentence(item);
     }
     saveState();
-    renderPractice();
   }
-  await playSentence(item);
+  item.sentenceRevealed = true;
+  saveState();
+  renderPractice();
+  try {
+    await playSentence(item);
+    setStatus("");
+  } finally {
+    els.sentenceButton.disabled = false;
+  }
 }
 
 function makeLocalSentence(item) {
-  const hero = selectedHero;
+  const hero = heroes[Math.floor(Math.random() * heroes.length)];
   const displayPinyin = item.displayPinyin || item.pinyin;
   const templates = {
     Superman: {
@@ -539,7 +551,7 @@ function restartPractice() {
   state.currentIndex = 0;
   state.correct = 0;
   state.attempts = 0;
-  state.items = state.items.map((item) => ({ ...item, completed: false, lastResult: null }));
+  state.items = state.items.map((item) => ({ ...item, completed: false, lastResult: null, sentenceRevealed: false }));
   saveState();
   renderPractice();
   showView("practice");
@@ -548,8 +560,7 @@ function restartPractice() {
 function resetAll() {
   localStorage.removeItem(storageKey);
   state = freshState();
-  selectedHero = heroes[0];
-  renderHeroes();
+  lastRenderedIndex = -1;
   showView("upload");
   setStatus(capabilities.languageProvider === "local" ? "没有 Anthropic/OpenAI API key：照片识别先不可用，但可以手动输入练习。" : "");
 }
@@ -562,6 +573,7 @@ function addWordRow() {
     pinyin: "",
     displayPinyin: "",
     sentence: null,
+    sentenceRevealed: false,
     completed: false,
     lastResult: null
   });
@@ -599,14 +611,25 @@ els.addWordButton.addEventListener("click", addWordRow);
 els.startButton.addEventListener("click", startPractice);
 els.listenWordButton.addEventListener("click", listenToCurrentWord);
 els.recordButton.addEventListener("click", recordPronunciation);
+els.sentenceButton.addEventListener("click", () => {
+  const item = getCurrentItem();
+  if (item) revealSentence(item);
+});
 els.replaySentenceButton.addEventListener("click", replaySentence);
 els.nextButton.addEventListener("click", nextWord);
 els.againButton.addEventListener("click", restartPractice);
 els.resetButton.addEventListener("click", resetAll);
+els.wordStage.addEventListener("click", () => {
+  els.wordStage.classList.toggle("show-pinyin");
+});
+els.wordStage.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  els.wordStage.classList.toggle("show-pinyin");
+});
 
 async function init() {
   await refreshCapabilities();
-  renderHeroes();
   if (state.items.length && state.view === "review") {
     renderReview();
     showView("review");

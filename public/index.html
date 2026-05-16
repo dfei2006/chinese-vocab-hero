@@ -57,12 +57,10 @@
           <div class="score-pill" id="scorePill">0 ✓</div>
         </div>
 
-        <div class="word-stage">
+        <div class="word-stage" id="wordStage" tabindex="0" aria-label="Vocabulary word. Tap to reveal pinyin.">
           <div class="character" id="currentWord">字</div>
           <div class="pinyin" id="currentPinyin">zi4</div>
         </div>
-
-        <div class="hero-picker" id="heroPicker" aria-label="Hero picker"></div>
 
         <div class="practice-actions">
           <button class="secondary-action" id="listenWordButton" type="button">听一遍</button>
@@ -70,6 +68,8 @@
         </div>
 
         <div class="feedback" id="feedbackBox" aria-live="polite"></div>
+
+        <button class="primary-action full sentence-action hidden" id="sentenceButton" type="button">造句</button>
 
         <article class="sentence-panel hidden" id="sentencePanel">
           <div class="sentence-hero" id="sentenceHero"></div>
