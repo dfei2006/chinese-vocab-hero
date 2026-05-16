@@ -357,6 +357,10 @@ h2 {
   font-size: 1.35rem;
 }
 
+.icon-button.active {
+  background: var(--yellow);
+}
+
 .word-list {
   display: grid;
   gap: 10px;
@@ -484,6 +488,16 @@ h2 {
   background: #f7e2bd;
 }
 
+.coach-card.ready {
+  background: #fff1c7;
+  box-shadow: 4px 4px 0 var(--ink), 0 0 0 4px rgba(234, 180, 95, 0.34);
+}
+
+.coach-card.live {
+  background: #e8f1ef;
+  box-shadow: 4px 4px 0 var(--ink), 0 0 0 4px rgba(14, 114, 128, 0.26);
+}
+
 .coach-card:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 var(--ink);
@@ -522,6 +536,26 @@ h2 {
   text-align: center;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.coach-card.ready .coach-progress {
+  background: var(--yellow);
+  animation: chat-ready-pulse 900ms ease-in-out infinite alternate;
+}
+
+.coach-card.live .coach-progress {
+  background: var(--teal);
+  color: white;
+}
+
+@keyframes chat-ready-pulse {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.08);
+  }
 }
 
 .feedback {

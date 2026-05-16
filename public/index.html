@@ -12,7 +12,7 @@
         <div>
           <h1>Atlas 中文练习</h1>
         </div>
-        <button class="icon-button" id="resetButton" type="button" title="Reset saved practice" aria-label="Reset saved practice">↻</button>
+        <button class="icon-button" id="adminToggleButton" type="button" title="家长设置" aria-label="家长设置" aria-controls="adminSettings" aria-expanded="false">⚙</button>
       </header>
 
       <section class="status-strip" id="statusStrip" aria-live="polite"></section>
@@ -26,7 +26,7 @@
             </label>
             <button class="secondary-action compact" id="manualButton" type="button">手动输入</button>
           </div>
-          <section class="admin-settings" aria-labelledby="adminSettingsTitle">
+          <section class="admin-settings hidden" id="adminSettings" aria-labelledby="adminSettingsTitle">
             <h3 id="adminSettingsTitle">家长设置</h3>
             <label class="setting-field">
               <span>聊天人设</span>

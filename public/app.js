@@ -14,9 +14,10 @@ const celebrationLines = [
 
 const els = {
   statusStrip: document.querySelector("#statusStrip"),
-  resetButton: document.querySelector("#resetButton"),
+  adminToggleButton: document.querySelector("#adminToggleButton"),
   photoInput: document.querySelector("#photoInput"),
   manualButton: document.querySelector("#manualButton"),
+  adminSettings: document.querySelector("#adminSettings"),
   personaInput: document.querySelector("#personaInput"),
   avatarInput: document.querySelector("#avatarInput"),
   avatarPreview: document.querySelector("#avatarPreview"),
@@ -64,6 +65,7 @@ let mediaRecorder = null;
 let recordingChunks = [];
 let liveChat = null;
 let lastRenderedIndex = -1;
+let adminSettingsOpen = false;
 let capabilities = {
   openAiConfigured: false,
   anthropicConfigured: false,
@@ -81,6 +83,7 @@ function freshState() {
     attempts: 0,
     currentBatchId: null,
     chatOpen: false,
+    chatCredits: 0,
     chatDialogId: null,
     chatHistory: []
   };
@@ -89,7 +92,13 @@ function freshState() {
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
-    if (saved?.items) return { ...freshState(), ...saved };
+    if (saved?.items) {
+      return {
+        ...freshState(),
+        ...saved,
+        chatCredits: saved.chatCredits ?? Math.min(saved.correct || 0, chatUnlockCorrect)
+      };
+    }
   } catch {
     localStorage.removeItem(storageKey);
   }
@@ -143,6 +152,24 @@ function renderSettings() {
     els.coachPortrait.src = avatar;
     els.coachPortrait.hidden = false;
   }
+}
+
+function renderAdminSettings() {
+  els.adminSettings.classList.toggle("hidden", !adminSettingsOpen);
+  els.adminToggleButton.classList.toggle("active", adminSettingsOpen);
+  els.adminToggleButton.setAttribute("aria-expanded", String(adminSettingsOpen));
+}
+
+function toggleAdminSettings() {
+  if (state.view !== "upload") {
+    state.view = "upload";
+    saveState();
+    showView("upload");
+    adminSettingsOpen = true;
+  } else {
+    adminSettingsOpen = !adminSettingsOpen;
+  }
+  renderAdminSettings();
 }
 
 function setStatus(message) {
@@ -237,6 +264,7 @@ async function handlePhotoChange(event) {
     state.correct = 0;
     state.attempts = 0;
     state.chatOpen = false;
+    state.chatCredits = 0;
     state.chatHistory = [];
     state.currentBatchId = saveCurrentBatch({ thumbnailDataUrl });
     saveState();
@@ -410,12 +438,16 @@ function renderPractice() {
   saveState();
 }
 
+function chatCreditCount() {
+  return Math.min(Math.max(Number(state.chatCredits) || 0, 0), chatUnlockCorrect);
+}
+
 function isChatUnlocked() {
-  return state.correct >= chatUnlockCorrect;
+  return chatCreditCount() >= chatUnlockCorrect;
 }
 
 function remainingForChat() {
-  return Math.max(0, chatUnlockCorrect - state.correct);
+  return Math.max(0, chatUnlockCorrect - chatCreditCount());
 }
 
 function renderCoach() {
@@ -423,13 +455,17 @@ function renderCoach() {
   els.coachPortrait.hidden = false;
   const remaining = remainingForChat();
   const unlocked = isChatUnlocked();
-  const progressText = `${Math.min(state.correct, chatUnlockCorrect)} / ${chatUnlockCorrect}`;
+  const progressText = unlocked ? "开聊" : `${chatCreditCount()} / ${chatUnlockCorrect}`;
   els.coachCard.classList.toggle("locked", !unlocked);
+  els.coachCard.classList.toggle("ready", unlocked && !liveChat);
+  els.coachCard.classList.toggle("live", Boolean(liveChat));
   els.coachCard.setAttribute("aria-disabled", String(!unlocked));
   els.coachCard.setAttribute("aria-label", unlocked ? `跟我聊天，${progressText}` : `再读对 ${remaining} 个词，就能跟我聊天，${progressText}`);
   els.coachProgress.textContent = progressText;
-  if (isChatUnlocked()) {
-    els.coachLine.textContent = state.chatOpen ? "来，跟成龙聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
+  if (liveChat) {
+    els.coachLine.textContent = "我在听，直接说中文。";
+  } else if (unlocked) {
+    els.coachLine.textContent = "可以跟成龙实时聊天了，点这里开始。";
   } else {
     els.coachLine.textContent = `再读对 ${remaining} 个词，就能跟我聊天。`;
   }
@@ -539,6 +575,13 @@ function normalizeChinese(value) {
   return String(value || "").replace(/[^\u3400-\u9fff]/g, "");
 }
 
+function transcriptCandidates(value) {
+  return String(value || "")
+    .split(/[\s,，.。!！?？、;；:：/|]+/)
+    .map(normalizeChinese)
+    .filter(Boolean);
+}
+
 function levenshtein(a, b) {
   const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
   for (let i = 0; i <= a.length; i += 1) dp[i][0] = i;
@@ -557,10 +600,12 @@ function levenshtein(a, b) {
 
 function fuzzyMatches(target, transcript) {
   const expected = normalizeChinese(target);
-  const heard = normalizeChinese(transcript);
-  if (!expected || !heard) return false;
-  if (heard.includes(expected) || expected.includes(heard)) return true;
-  if (expected.length > 1 && levenshtein(expected, heard) <= 1) return true;
+  const candidates = transcriptCandidates(transcript);
+  if (!expected || !candidates.length) return false;
+  if (candidates.some((heard) => heard === expected)) return true;
+  if (expected.length >= 3) {
+    return candidates.some((heard) => heard.length === expected.length && levenshtein(expected, heard) <= 1);
+  }
   return false;
 }
 
@@ -696,7 +741,10 @@ async function handleTranscript(item, text) {
   item.completed = true;
   item.sentenceRevealed = false;
   state.attempts += 1;
-  if (ok) state.correct += 1;
+  if (ok) {
+    state.correct += 1;
+    state.chatCredits = Math.min(chatUnlockCorrect, chatCreditCount() + 1);
+  }
   if (ok) {
     els.wordStage.classList.remove("success-pop");
     requestAnimationFrame(() => els.wordStage.classList.add("success-pop"));
@@ -815,7 +863,28 @@ function renderChatMessages() {
   els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
 }
 
+function addChatTurn(role, text) {
+  state.chatHistory.push({ role, text });
+  saveState();
+  renderChatMessages();
+}
+
+function chatIntroLine() {
+  const words = state.items
+    .filter((item) => item.completed || item.lastResult?.ok)
+    .slice(-4)
+    .map((item) => item.word)
+    .filter(Boolean);
+  const current = getCurrentItem()?.word;
+  const wordText = words.length ? words.join("、") : current || "中文";
+  return `我是成龙，刚才你练了${wordText}，很有功夫！选一个词，跟我说一句中文吧。`;
+}
+
 async function toggleChat() {
+  if (liveChat) {
+    stopRealtimeChat();
+    return;
+  }
   if (!isChatUnlocked()) {
     const remaining = remainingForChat();
     const line = `还差 ${remaining} 个词。再读对 ${remaining} 个，就能跟我聊天！`;
@@ -827,9 +896,10 @@ async function toggleChat() {
     return;
   }
 
-  state.chatOpen = !state.chatOpen;
+  state.chatOpen = true;
   saveState();
   renderPractice();
+  await startRealtimeChat();
 }
 
 function updateLiveChatBubble(role, text, { append = false } = {}) {
@@ -908,6 +978,9 @@ async function startRealtimeChat() {
       : "实时聊天还没配置好：需要填写火山端到端实时语音的 APP ID 和 API Key。";
     els.voiceChatHint.textContent = message;
     setStatus(message);
+    state.chatOpen = false;
+    saveState();
+    renderCoach();
     return;
   }
 
@@ -940,10 +1013,23 @@ async function startRealtimeChat() {
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
       if (message.type === "ready") {
-        source.connect(processor);
-        processor.connect(audioContext.destination);
-        els.voiceChatHint.textContent = "正在实时聊天，直接说中文。";
-        setStatus("");
+        liveChat.started = true;
+        state.chatOpen = true;
+        saveState();
+        renderCoach();
+        els.voiceChatHint.textContent = "成龙先出一招...";
+        setStatus("成龙先出一招...");
+        const intro = chatIntroLine();
+        addChatTurn("coach", intro);
+        playCoachLine(intro)
+          .catch((error) => setStatus(error.message))
+          .finally(() => {
+            if (!liveChat || liveChat.socket !== socket) return;
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+            els.voiceChatHint.textContent = "正在实时聊天，直接说中文。";
+            setStatus("");
+          });
       } else if (message.type === "transcript") {
         if (message.final) {
           if (liveChat.partialKid) {
@@ -983,6 +1069,11 @@ async function startRealtimeChat() {
     };
   } catch (error) {
     const message = error.message.includes("Permission") ? "麦克风没有打开。" : error.message;
+    if (!liveChat) {
+      state.chatOpen = false;
+      saveState();
+      renderCoach();
+    }
     stopRealtimeChat(false, message);
   }
 }
@@ -997,12 +1088,21 @@ function stopRealtimeChat(closeSocket = true, message = "") {
   }
   const current = liveChat;
   liveChat = null;
-  current.processor.disconnect();
-  current.source.disconnect();
+  try {
+    current.processor.disconnect();
+  } catch {}
+  try {
+    current.source.disconnect();
+  } catch {}
   current.stream.getTracks().forEach((track) => track.stop());
   current.audioContext.close();
   if (closeSocket && current.socket.readyState === WebSocket.OPEN) current.socket.close();
   finishLiveBubbles();
+  if (current.started) {
+    state.chatCredits = 0;
+  }
+  state.chatOpen = false;
+  saveState();
   els.voiceChatHint.textContent = message || "打开后直接说话，我会边听边回答。";
   setStatus(message);
   renderCoach();
@@ -1030,6 +1130,7 @@ function restartPractice() {
   state.correct = 0;
   state.attempts = 0;
   state.chatOpen = false;
+  state.chatCredits = 0;
   state.chatDialogId = null;
   state.chatHistory = [];
   state.items = state.items.map((item) => ({ ...item, completed: false, lastResult: null, sentenceRevealed: false }));
@@ -1096,6 +1197,7 @@ function startPractice() {
 }
 
 els.photoInput.addEventListener("change", handlePhotoChange);
+els.adminToggleButton.addEventListener("click", toggleAdminSettings);
 els.manualButton.addEventListener("click", startManualEntry);
 els.personaInput.addEventListener("input", () => {
   settings.personaPrompt = els.personaInput.value.trim() || defaultCoachPersona;
@@ -1134,7 +1236,6 @@ els.sentenceButton.addEventListener("click", () => {
 els.replaySentenceButton.addEventListener("click", replaySentence);
 els.nextButton.addEventListener("click", nextWord);
 els.againButton.addEventListener("click", restartPractice);
-els.resetButton.addEventListener("click", resetAll);
 els.wordStage.addEventListener("click", () => {
   els.wordStage.classList.toggle("show-pinyin");
 });
@@ -1147,6 +1248,7 @@ els.wordStage.addEventListener("keydown", (event) => {
 async function init() {
   await refreshCapabilities();
   renderSettings();
+  renderAdminSettings();
   renderSavedBatches();
   if (state.items.length && state.view === "review") {
     renderReview();
