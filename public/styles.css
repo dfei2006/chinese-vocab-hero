@@ -69,8 +69,8 @@ p {
 }
 
 h1 {
-  font-size: clamp(1.9rem, 8vw, 3.6rem);
-  line-height: 1;
+  font-size: clamp(1.25rem, 4.5vw, 1.9rem);
+  line-height: 1.05;
 }
 
 h2 {
