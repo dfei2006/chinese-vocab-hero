@@ -19,11 +19,13 @@
 
       <section class="view active" id="uploadView" aria-label="导入词语表">
         <div class="upload-zone">
-          <label class="primary-action">
-            <input id="photoInput" type="file" accept="image/*" capture="environment">
-            上传照片
-          </label>
-          <button class="secondary-action compact" id="manualButton" type="button">手动输入</button>
+          <div class="import-actions">
+            <label class="primary-action">
+              <input id="photoInput" type="file" accept="image/*" capture="environment">
+              上传照片
+            </label>
+            <button class="secondary-action compact" id="manualButton" type="button">手动输入</button>
+          </div>
           <section class="admin-settings" aria-labelledby="adminSettingsTitle">
             <h3 id="adminSettingsTitle">家长设置</h3>
             <label class="setting-field">

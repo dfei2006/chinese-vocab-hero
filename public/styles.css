@@ -118,22 +118,37 @@ h2 {
 }
 
 .upload-zone {
+  width: min(100%, 520px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   padding-top: 8px;
 }
 
+.import-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.import-actions .primary-action,
+.import-actions .secondary-action {
+  width: 100%;
+}
+
 .saved-batches {
-  width: min(100%, 520px);
+  width: 100%;
   margin-top: 4px;
 }
 
 .admin-settings {
-  width: min(100%, 520px);
+  width: 100%;
   display: grid;
-  gap: 10px;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 10px 12px;
   padding: 12px;
   border: 2px solid var(--ink);
   border-radius: 8px;
@@ -142,6 +157,7 @@ h2 {
 }
 
 .admin-settings h3 {
+  grid-column: 1 / -1;
   margin: 0;
   color: var(--ink);
   font-size: 1.05rem;
@@ -160,7 +176,7 @@ h2 {
 
 .setting-field textarea {
   width: 100%;
-  min-height: 82px;
+  min-height: 76px;
   resize: vertical;
   border: 2px solid var(--ink);
   border-radius: 8px;
@@ -172,8 +188,9 @@ h2 {
 
 .avatar-setting {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .avatar-preview {
@@ -187,6 +204,17 @@ h2 {
 
 .avatar-setting input {
   display: none;
+}
+
+@media (max-width: 560px) {
+  .admin-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-setting {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
 }
 
 .saved-batches h3 {
@@ -304,6 +332,10 @@ h2 {
 
 .secondary-action.compact {
   width: fit-content;
+}
+
+.import-actions .secondary-action.compact {
+  width: 100%;
 }
 
 .record-action {
