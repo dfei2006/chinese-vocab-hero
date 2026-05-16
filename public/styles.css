@@ -405,7 +405,7 @@ h2 {
 
 .coach-card {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 70px 1fr auto;
   gap: 12px;
   align-items: center;
   margin-top: 14px;
@@ -448,6 +448,18 @@ h2 {
 #coachLine {
   color: var(--muted);
   line-height: 1.35;
+}
+
+.coach-progress {
+  min-width: 74px;
+  padding: 8px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .feedback {
@@ -613,7 +625,7 @@ h2 {
   }
 
   .coach-card {
-    grid-template-columns: 58px 1fr;
+    grid-template-columns: 58px 1fr auto;
   }
 
   .coach-portrait {

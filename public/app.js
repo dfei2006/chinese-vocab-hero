@@ -32,6 +32,7 @@ const els = {
   recordButton: document.querySelector("#recordButton"),
   coachCard: document.querySelector("#coachCard"),
   coachLine: document.querySelector("#coachLine"),
+  coachProgress: document.querySelector("#coachProgress"),
   feedbackBox: document.querySelector("#feedbackBox"),
   chatPanel: document.querySelector("#chatPanel"),
   chatMessages: document.querySelector("#chatMessages"),
@@ -366,9 +367,11 @@ function remainingForChat() {
 function renderCoach() {
   const remaining = remainingForChat();
   const unlocked = isChatUnlocked();
+  const progressText = `${Math.min(state.correct, chatUnlockCorrect)} / ${chatUnlockCorrect}`;
   els.coachCard.classList.toggle("locked", !unlocked);
   els.coachCard.setAttribute("aria-disabled", String(!unlocked));
-  els.coachCard.setAttribute("aria-label", unlocked ? "跟我聊天" : `再读对 ${remaining} 个词，就能跟我聊天`);
+  els.coachCard.setAttribute("aria-label", unlocked ? `跟我聊天，${progressText}` : `再读对 ${remaining} 个词，就能跟我聊天，${progressText}`);
+  els.coachProgress.textContent = progressText;
   if (isChatUnlocked()) {
     els.coachLine.textContent = state.chatOpen ? "来，跟教练聊两句中文。" : "聊天已经打开了，练累了就来聊聊。";
   } else {
