@@ -82,7 +82,7 @@ Use a Speech resource, not the old Edge browser TTS workaround.
 6. Use the resource ID for the model, usually `seed-tts-2.0`.
 7. Find the **voice_type** / **speaker** shown in the TTS API examples.
 
-The newer console uses API Key access. The old console used Access Token. The app supports both, but the API Key path is the one to use on the screen you showed.
+The newer console uses API Key access with the `X-Api-Key` header. The old console used Access Token. The app supports both, but the API Key path is the one to use on the screen you showed.
 
 ### 5. Create your `.env` file
 
