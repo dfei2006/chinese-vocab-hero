@@ -560,20 +560,21 @@ h2 {
   background: var(--paper);
 }
 
-.chat-form {
+.voice-chat-controls {
   display: grid;
-  grid-template-columns: 1fr auto;
   gap: 8px;
   margin-top: 12px;
 }
 
-.chat-form input {
-  min-width: 0;
-  min-height: 48px;
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  padding: 0 12px;
-  color: var(--ink);
+.voice-chat-button.recording {
+  background: #7a2119;
+  color: white;
+}
+
+.voice-chat-hint {
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .sentence-panel {
@@ -632,10 +633,6 @@ h2 {
     width: 58px;
     height: 58px;
     font-size: 1.65rem;
-  }
-
-  .chat-form {
-    grid-template-columns: 1fr;
   }
 
   .secondary-action,

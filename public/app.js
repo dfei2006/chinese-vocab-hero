@@ -36,9 +36,8 @@ const els = {
   feedbackBox: document.querySelector("#feedbackBox"),
   chatPanel: document.querySelector("#chatPanel"),
   chatMessages: document.querySelector("#chatMessages"),
-  chatForm: document.querySelector("#chatForm"),
-  chatInput: document.querySelector("#chatInput"),
-  chatSendButton: document.querySelector("#chatSendButton"),
+  voiceChatButton: document.querySelector("#voiceChatButton"),
+  voiceChatHint: document.querySelector("#voiceChatHint"),
   sentenceButton: document.querySelector("#sentenceButton"),
   sentencePanel: document.querySelector("#sentencePanel"),
   sentenceHero: document.querySelector("#sentenceHero"),
@@ -55,6 +54,7 @@ let batches = loadBatches();
 let activeAudioUrl = null;
 let mediaRecorder = null;
 let recordingChunks = [];
+let liveChat = null;
 let lastRenderedIndex = -1;
 let capabilities = {
   openAiConfigured: false,
@@ -378,6 +378,8 @@ function renderCoach() {
     els.coachLine.textContent = `再读对 ${remaining} 个词，就能跟我聊天。`;
   }
   els.chatPanel.classList.toggle("hidden", !state.chatOpen || !isChatUnlocked());
+  els.voiceChatButton.textContent = liveChat ? "结束实时聊天" : "开始实时聊天";
+  els.voiceChatButton.classList.toggle("recording", Boolean(liveChat));
   renderChatMessages();
 }
 
@@ -566,53 +568,68 @@ async function handleRecordingBlob(blob) {
 }
 
 async function recordWithBrowserSpeech() {
+  const item = getCurrentItem();
+  const transcript = await listenWithBrowserSpeech({
+    onStart: () => {
+      els.recordButton.classList.add("recording");
+      els.recordButton.textContent = "正在听";
+      setStatus("浏览器正在听...");
+    },
+    onEnd: () => {
+      els.recordButton.classList.remove("recording");
+      els.recordButton.textContent = "按下录音";
+    }
+  });
+  if (!transcript) return;
+
+  try {
+    await handleTranscript(item, transcript);
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+async function listenWithBrowserSpeech({ onStart, onEnd } = {}) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     setStatus("这个浏览器没有中文语音识别。可以用 Chrome/Safari，或加 OpenAI API key。");
-    return;
+    return "";
   }
 
-  const item = getCurrentItem();
   const recognition = new SpeechRecognition();
   recognition.lang = "zh-CN";
   recognition.interimResults = false;
   recognition.maxAlternatives = 3;
 
-  els.recordButton.classList.add("recording");
-  els.recordButton.textContent = "正在听";
-  setStatus("浏览器正在听...");
+  onStart?.();
 
-  await new Promise((resolve) => {
+  const transcript = await new Promise((resolve) => {
     let settled = false;
-    const finish = () => {
+    const finish = (value = "") => {
       if (settled) return;
       settled = true;
-      resolve();
+      resolve(value);
     };
 
-    recognition.addEventListener("result", async (event) => {
+    recognition.addEventListener("result", (event) => {
       const transcript = Array.from(event.results)
         .flatMap((result) => Array.from(result))
         .map((alternative) => alternative.transcript)
         .join(" ");
-      try {
-        await handleTranscript(item, transcript);
-      } catch (error) {
-        setStatus(error.message);
-      }
-      finish();
+      finish(transcript);
     });
     recognition.addEventListener("error", (event) => {
       setStatus(event.error === "not-allowed" ? "麦克风没有打开。" : "没有听清，再试一次。");
       finish();
     });
     recognition.addEventListener("end", () => {
-      els.recordButton.classList.remove("recording");
-      els.recordButton.textContent = "按下录音";
+      onEnd?.();
       finish();
     });
     recognition.start();
   });
+
+  return transcript;
 }
 
 async function handleTranscript(item, text) {
@@ -739,39 +756,153 @@ async function toggleChat() {
   renderPractice();
 }
 
-async function sendChatMessage(event) {
-  event.preventDefault();
-  if (!isChatUnlocked()) return toggleChat();
-
-  const message = els.chatInput.value.trim();
-  if (!message) return;
-
-  const kidTurn = { role: "kid", text: message };
-  state.chatHistory.push(kidTurn);
-  els.chatInput.value = "";
-  els.chatSendButton.disabled = true;
-  saveState();
+function updateLiveChatBubble(role, text, { append = false } = {}) {
+  const last = state.chatHistory[state.chatHistory.length - 1];
+  if (last?.role === role && last.live) {
+    last.text = append ? last.text + text : text;
+  } else {
+    state.chatHistory.push({ role, text, live: true });
+  }
   renderChatMessages();
+}
+
+function finishLiveBubbles() {
+  for (const turn of state.chatHistory) delete turn.live;
+  saveState();
+}
+
+function downsampleFloat32(input, inputRate, outputRate) {
+  if (outputRate === inputRate) return input;
+  const ratio = inputRate / outputRate;
+  const length = Math.floor(input.length / ratio);
+  const output = new Float32Array(length);
+  for (let i = 0; i < length; i += 1) {
+    output[i] = input[Math.floor(i * ratio)] || 0;
+  }
+  return output;
+}
+
+function floatToInt16Buffer(input) {
+  const buffer = new ArrayBuffer(input.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < input.length; i += 1) {
+    const sample = Math.max(-1, Math.min(1, input[i]));
+    view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+  return buffer;
+}
+
+function base64ToFloat32(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Float32Array(bytes.buffer);
+}
+
+function playRealtimeAudioChunk(samples, sampleRate) {
+  if (!liveChat?.audioContext || !samples.length) return;
+  const context = liveChat.audioContext;
+  const buffer = context.createBuffer(1, samples.length, sampleRate);
+  buffer.copyToChannel(samples, 0);
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(context.destination);
+  const startAt = Math.max(context.currentTime + 0.02, liveChat.playAt || 0);
+  source.start(startAt);
+  liveChat.playAt = startAt + buffer.duration;
+}
+
+async function startRealtimeChat() {
+  if (!isChatUnlocked()) return toggleChat();
+  if (liveChat) {
+    stopRealtimeChat();
+    return;
+  }
 
   try {
-    setStatus("教练正在想...");
-    const { reply } = await apiJson("/api/chat", {
-      message,
-      studiedItems: studiedItemsForChat(),
-      currentWord: getCurrentItem(),
-      history: state.chatHistory
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/realtime`);
+    socket.binaryType = "arraybuffer";
+
+    liveChat = { socket, stream, audioContext, source, processor, playAt: 0, partialKid: "" };
+    renderCoach();
+    els.voiceChatHint.textContent = "正在连接实时语音...";
+    setStatus("正在连接实时语音...");
+
+    socket.addEventListener("open", () => {
+      socket.send(JSON.stringify({
+        type: "start",
+        context: {
+          studiedItems: studiedItemsForChat(),
+          currentWord: getCurrentItem()
+        }
+      }));
     });
-    const coachTurn = { role: "coach", text: reply };
-    state.chatHistory.push(coachTurn);
-    saveState();
-    renderChatMessages();
-    await playCoachLine(reply);
-    setStatus("");
+
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "ready") {
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        els.voiceChatHint.textContent = "正在实时聊天，直接说中文。";
+        setStatus("");
+      } else if (message.type === "transcript") {
+        if (message.final) {
+          if (liveChat.partialKid) {
+            const last = state.chatHistory[state.chatHistory.length - 1];
+            if (last?.role === "kid" && last.live) last.text = message.text;
+          } else {
+            state.chatHistory.push({ role: "kid", text: message.text, live: true });
+          }
+          liveChat.partialKid = "";
+          finishLiveBubbles();
+          renderChatMessages();
+        } else if (message.text) {
+          liveChat.partialKid = message.text;
+          updateLiveChatBubble("kid", message.text);
+        }
+      } else if (message.type === "replyText") {
+        updateLiveChatBubble("coach", message.text || "", { append: true });
+      } else if (message.type === "replyDone") {
+        finishLiveBubbles();
+      } else if (message.type === "audio") {
+        playRealtimeAudioChunk(base64ToFloat32(message.data), message.sampleRate || 24000);
+      } else if (message.type === "error") {
+        els.voiceChatHint.textContent = message.message || "实时聊天断开了。";
+        setStatus(message.message || "实时聊天断开了。");
+      }
+    });
+
+    socket.addEventListener("close", () => stopRealtimeChat(false));
+
+    processor.onaudioprocess = (event) => {
+      if (!liveChat || socket.readyState !== WebSocket.OPEN) return;
+      const input = event.inputBuffer.getChannelData(0);
+      const samples = downsampleFloat32(input, audioContext.sampleRate, 24000);
+      socket.send(floatToInt16Buffer(samples));
+    };
   } catch (error) {
-    setStatus(error.message);
-  } finally {
-    els.chatSendButton.disabled = false;
+    stopRealtimeChat(false);
+    setStatus(error.message.includes("Permission") ? "麦克风没有打开。" : error.message);
   }
+}
+
+function stopRealtimeChat(closeSocket = true) {
+  if (!liveChat) return;
+  const current = liveChat;
+  liveChat = null;
+  current.processor.disconnect();
+  current.source.disconnect();
+  current.stream.getTracks().forEach((track) => track.stop());
+  current.audioContext.close();
+  if (closeSocket && current.socket.readyState === WebSocket.OPEN) current.socket.close();
+  finishLiveBubbles();
+  els.voiceChatHint.textContent = "打开后直接说话，我会边听边回答。";
+  setStatus("");
+  renderCoach();
 }
 
 function nextWord() {
@@ -867,7 +998,7 @@ els.coachCard.addEventListener("keydown", (event) => {
   event.preventDefault();
   toggleChat();
 });
-els.chatForm.addEventListener("submit", sendChatMessage);
+els.voiceChatButton.addEventListener("click", startRealtimeChat);
 els.sentenceButton.addEventListener("click", () => {
   const item = getCurrentItem();
   if (item) revealSentence(item);

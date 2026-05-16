@@ -6,7 +6,7 @@ The app starts with a worksheet photo, extracts the numbered Chinese words and p
 
 ## Why These Providers
 
-The voice is the hardest part. The app supports **Azure Speech** and **火山引擎 / 豆包 TTS** for text-to-speech.
+The voice is the hardest part. The app supports **Azure Speech** and **火山引擎 / 豆包 TTS** for text-to-speech, and it can use **火山端到端实时语音大模型** for the unlocked live voice chat reward.
 
 Azure Speech is still the tone-control winner because it supports SSML phoneme hints for `zh-CN` using pinyin tone numbers like `chang 2` and `zhang 3`, which is exactly what we need for homophones such as 长. 火山/豆包 can be a practical alternative if Azure setup is blocked, but this implementation does not have a confirmed pinyin phoneme-hint path for 火山, so heteronym control depends more on sentence context.
 
@@ -16,6 +16,8 @@ For the full photo-to-practice flow, you need:
 
 - One Anthropic API key
 - One TTS provider: Azure Speech, or 火山引擎 / 豆包 TTS
+
+For the live voice chat reward, use one 火山 realtime API key from the 豆包端到端实时语音大模型 API access page.
 
 No Google Cloud project, no custom search engine, no image API, no browser scraping.
 
@@ -114,6 +116,10 @@ VOLCENGINE_TTS_ACCESS_TOKEN=
 VOLCENGINE_TTS_CLUSTER=volcano_tts
 VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
 
+VOLCENGINE_REALTIME_APP_ID=
+VOLCENGINE_REALTIME_ACCESS_TOKEN=
+VOLCENGINE_REALTIME_SPEAKER=zh_female_shuangkuaisisi_uranus_bigtts
+
 HTTPS_PROXY=
 NO_PROXY=localhost,127.0.0.1
 
@@ -130,6 +136,16 @@ VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0
 VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts
 ```
 
+For the unlocked live voice chat, fill these from the 火山 **豆包端到端实时语音大模型** API access page:
+
+```bash
+VOLCENGINE_REALTIME_APP_ID=your_realtime_app_id
+VOLCENGINE_REALTIME_ACCESS_TOKEN=your_realtime_api_key
+VOLCENGINE_REALTIME_SPEAKER=S_nNepq2X22
+```
+
+`VOLCENGINE_REALTIME_SPEAKER` can be the same cloned voice ID you use for TTS, as long as that voice is available to the realtime model. If these are blank, the app falls back to the TTS app ID/key, but 火山 may reject that with `401` unless the same app/key has the `volc.speech.dialog` realtime grant.
+
 To force Azure:
 
 ```bash
@@ -139,6 +155,14 @@ TTS_PROVIDER=azure
 If `TTS_PROVIDER` is blank, the app tries 火山 first when 火山 credentials are present, otherwise Azure.
 
 ### 6. Run the app
+
+Install the one local WebSocket dependency:
+
+```bash
+npm install
+```
+
+Then start:
 
 ```bash
 npm start
@@ -164,7 +188,8 @@ Browsers usually allow the microphone on `localhost`. On a phone, you may need t
 4. Tap **听一遍** if the kid wants to hear the word.
 5. Tap **按下录音**, say the word, then tap again to stop.
 6. The app fuzzy-matches the transcription and always reveals a sentence.
-7. Tap **下一个** to continue.
+7. After 3 correct words, tap the coach card and then **开始实时聊天** for live voice chat.
+8. Tap **下一个** to continue.
 
 ## Notes On Tone Accuracy
 
@@ -210,6 +235,13 @@ If audio fails:
 - For 火山 API Key mode, check `VOLCENGINE_TTS_APP_ID`, `VOLCENGINE_TTS_ACCESS_KEY`, `VOLCENGINE_TTS_RESOURCE_ID=seed-tts-2.0`, and `VOLCENGINE_TTS_VOICE_TYPE=zh_female_shuangkuaisisi_uranus_bigtts`.
 - If 火山 says the voice is invalid or mismatched, the voice type and resource ID do not belong to the same model grant.
 
+If live voice chat says 火山 rejected the connection or shows `401`:
+
+- Check `VOLCENGINE_REALTIME_APP_ID`.
+- Check `VOLCENGINE_REALTIME_ACCESS_TOKEN`.
+- Make sure the key is from the **豆包端到端实时语音大模型** API access flow, not only the normal TTS page.
+- The realtime API uses the fixed resource grant `volc.speech.dialog`; the app/key must have that access.
+
 If recording fails:
 
 - Allow microphone access in the browser.
@@ -232,3 +264,4 @@ NODE_ENV=development npm start
 - [Azure Speech text-to-speech REST API](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech)
 - [Azure Speech phonetic alphabets](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-ssml-phonetic-sets)
 - [火山引擎语音合成文档](https://www.volcengine.com/docs/6561)
+- [火山端到端实时语音大模型调用指南](https://www.volcengine.com/docs/6561/1594356?lang=zh)

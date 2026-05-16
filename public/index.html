@@ -81,10 +81,10 @@
 
         <section class="chat-panel hidden" id="chatPanel" aria-label="Coach chat">
           <div class="chat-messages" id="chatMessages"></div>
-          <form class="chat-form" id="chatForm">
-            <input id="chatInput" type="text" autocomplete="off" placeholder="跟教练说一句话">
-            <button class="primary-action" id="chatSendButton" type="submit">发送</button>
-          </form>
+          <div class="voice-chat-controls">
+            <button class="primary-action full voice-chat-button" id="voiceChatButton" type="button">开始实时聊天</button>
+            <p class="voice-chat-hint" id="voiceChatHint">打开后直接说话，我会边听边回答。</p>
+          </div>
         </section>
 
         <button class="primary-action full sentence-action hidden" id="sentenceButton" type="button">造句</button>

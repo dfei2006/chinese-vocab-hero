@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gzipSync, gunzipSync } from "node:zlib";
+import { WebSocket, WebSocketServer } from "ws";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const rootDir = normalize(join(__dirname, ".."));
@@ -16,6 +18,9 @@ const openAiTranscribeModel = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-min
 const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 const azureVoice = process.env.AZURE_SPEECH_VOICE || "zh-CN-XiaoxiaoMultilingualNeural";
 const volcengineVoice = process.env.VOLCENGINE_TTS_VOICE_TYPE || "zh_female_shuangkuaisisi_uranus_bigtts";
+const realtimeAppId = process.env.VOLCENGINE_REALTIME_APP_ID || process.env.VOLCENGINE_TTS_APP_ID;
+const realtimeAccessToken = process.env.VOLCENGINE_REALTIME_ACCESS_TOKEN || process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY;
+const realtimeSpeaker = process.env.VOLCENGINE_REALTIME_SPEAKER || volcengineVoice;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -767,6 +772,218 @@ async function handleTranscribe(req, res) {
   sendJson(res, 200, { text: String(responseJson.text || "").trim() });
 }
 
+const VOLC_CLIENT_FULL_REQUEST = 0b0001;
+const VOLC_CLIENT_AUDIO_REQUEST = 0b0010;
+const VOLC_SERVER_FULL_RESPONSE = 0b1001;
+const VOLC_SERVER_ACK = 0b1011;
+const VOLC_SERVER_ERROR = 0b1111;
+const VOLC_MSG_WITH_EVENT = 0b0100;
+const VOLC_JSON = 0b0001;
+const VOLC_NO_SERIALIZATION = 0b0000;
+const VOLC_GZIP = 0b0001;
+
+function volcHeader({
+  messageType = VOLC_CLIENT_FULL_REQUEST,
+  flags = VOLC_MSG_WITH_EVENT,
+  serialization = VOLC_JSON,
+  compression = VOLC_GZIP
+} = {}) {
+  return Buffer.from([
+    (0b0001 << 4) | 0b0001,
+    (messageType << 4) | flags,
+    (serialization << 4) | compression,
+    0
+  ]);
+}
+
+function int32(value) {
+  const buffer = Buffer.alloc(4);
+  buffer.writeInt32BE(value, 0);
+  return buffer;
+}
+
+function uint32(value) {
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt32BE(value, 0);
+  return buffer;
+}
+
+function volcMessage({ event, sessionId, payload = {}, messageType, serialization, compression = VOLC_GZIP }) {
+  const rawPayload = Buffer.isBuffer(payload) ? payload : Buffer.from(JSON.stringify(payload));
+  const body = compression === VOLC_GZIP ? gzipSync(rawPayload) : rawPayload;
+  const parts = [
+    volcHeader({ messageType, serialization, compression }),
+    int32(event)
+  ];
+  if (sessionId) {
+    const session = Buffer.from(sessionId);
+    parts.push(uint32(session.length), session);
+  }
+  parts.push(uint32(body.length), body);
+  return Buffer.concat(parts);
+}
+
+function parseVolcMessage(data) {
+  const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  const headerSize = (buffer[0] & 0x0f) * 4;
+  const messageType = buffer[1] >> 4;
+  const flags = buffer[1] & 0x0f;
+  const serialization = buffer[2] >> 4;
+  const compression = buffer[2] & 0x0f;
+  let offset = headerSize;
+  const result = { messageType, flags, serialization, compression };
+
+  if (messageType === VOLC_SERVER_FULL_RESPONSE || messageType === VOLC_SERVER_ACK) {
+    if (flags & 0b0010) offset += 4;
+    if (flags & VOLC_MSG_WITH_EVENT) {
+      result.event = buffer.readInt32BE(offset);
+      offset += 4;
+    }
+    const sessionLength = buffer.readInt32BE(offset);
+    offset += 4 + sessionLength;
+    const payloadLength = buffer.readUInt32BE(offset);
+    offset += 4;
+    let payload = buffer.subarray(offset, offset + payloadLength);
+    if (compression === VOLC_GZIP) payload = gunzipSync(payload);
+    result.payload = serialization === VOLC_JSON ? JSON.parse(payload.toString("utf8")) : payload;
+  } else if (messageType === VOLC_SERVER_ERROR) {
+    result.code = buffer.readUInt32BE(offset);
+    offset += 4;
+    const payloadLength = buffer.readUInt32BE(offset);
+    offset += 4;
+    let payload = buffer.subarray(offset, offset + payloadLength);
+    if (compression === VOLC_GZIP) payload = gunzipSync(payload);
+    result.payload = payload.toString("utf8");
+  }
+
+  return result;
+}
+
+function realtimeSystemRole(context = {}) {
+  const studied = Array.isArray(context.studiedItems) ? context.studiedItems : [];
+  const vocabLines = studied
+    .slice(0, 30)
+    .map((item, index) => `${index + 1}. ${item.word} (${item.pinyin || item.displayPinyin || ""})${item.completed ? " practiced" : ""}`)
+    .join("\n");
+  const currentWord = context.currentWord || {};
+  return `
+你是一个给 6-10 岁孩子练中文的热情中文教练。
+你要用简单、自然、短句的普通话聊天，像在实时陪孩子练习。
+每次回答尽量少于 35 个汉字，鼓励孩子多说中文。
+自然使用孩子已经练过的词，不要考试式提问太多。
+
+已练词语：
+${vocabLines || "暂无。"}
+
+当前词语：${currentWord.word || "无"} (${currentWord.pinyin || ""})
+`.trim();
+}
+
+function realtimeStartSessionPayload(context) {
+  return {
+    tts: {
+      audio_config: {
+        channel: 1,
+        format: "pcm",
+        sample_rate: 24000
+      },
+      speaker: realtimeSpeaker
+    },
+    dialog: {
+      bot_name: "Atlas",
+      system_role: realtimeSystemRole(context),
+      dialog_id: context.dialogId || crypto.randomUUID(),
+      speaking_style: "说话自然、有活力，像在面对面鼓励孩子练中文。语速稍慢，句子短。",
+      extra: { strict_audit: false }
+    }
+  };
+}
+
+async function openVolcRealtimeSocket(context) {
+  if (!realtimeAppId || !realtimeAccessToken) {
+    throw new UserError("Volcengine realtime voice is not configured. Set VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_TOKEN.", 400);
+  }
+
+  const upstream = new WebSocket("wss://openspeech.bytedance.com/api/v3/realtime/dialogue", {
+    headers: {
+      "X-Api-App-ID": realtimeAppId,
+      "X-Api-Access-Key": realtimeAccessToken,
+      "X-Api-Resource-Id": "volc.speech.dialog",
+      "X-Api-App-Key": "PlgvMymc7f3tQnJ6",
+      "X-Api-Connect-Id": crypto.randomUUID()
+    }
+  });
+
+  try {
+    await new Promise((resolve, reject) => {
+      upstream.once("open", resolve);
+      upstream.once("error", reject);
+    });
+  } catch (error) {
+    throw new UserError(`Volcengine realtime voice rejected the connection. Check VOLCENGINE_REALTIME_APP_ID and VOLCENGINE_REALTIME_ACCESS_TOKEN. ${error.message || ""}`.trim(), 502);
+  }
+
+  const sessionId = crypto.randomUUID();
+  upstream.send(volcMessage({ event: 1, payload: {} }));
+  await onceMessage(upstream);
+  upstream.send(volcMessage({ event: 100, sessionId, payload: realtimeStartSessionPayload(context) }));
+  await onceMessage(upstream);
+  return { upstream, sessionId };
+}
+
+function onceMessage(socket) {
+  return new Promise((resolve, reject) => {
+    socket.once("message", resolve);
+    socket.once("error", reject);
+  });
+}
+
+function sendClientJson(client, payload) {
+  if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(payload));
+}
+
+async function startRealtimeBridge(client, context) {
+  let upstream;
+  let sessionId;
+  try {
+    ({ upstream, sessionId } = await openVolcRealtimeSocket(context));
+  } catch (error) {
+    sendClientJson(client, { type: "error", message: error.message || "Cannot start realtime voice chat." });
+    client.close();
+    return null;
+  }
+
+  sendClientJson(client, { type: "ready", sampleRate: 24000 });
+
+  upstream.on("message", (data) => {
+    try {
+      const event = parseVolcMessage(data);
+      if (event.messageType === VOLC_SERVER_ERROR) {
+        sendClientJson(client, { type: "error", message: event.payload || `Volcengine realtime error ${event.code}` });
+        return;
+      }
+      if (event.event === 451) {
+        const result = event.payload?.results?.[0];
+        const text = result?.alternatives?.[0]?.text;
+        if (text) sendClientJson(client, { type: "transcript", text, final: !result.is_interim });
+      } else if (event.event === 550) {
+        const text = event.payload?.content;
+        if (text) sendClientJson(client, { type: "replyText", text });
+      } else if (event.event === 352 && Buffer.isBuffer(event.payload)) {
+        sendClientJson(client, { type: "audio", sampleRate: 24000, data: event.payload.toString("base64") });
+      } else if (event.event === 359) {
+        sendClientJson(client, { type: "replyDone" });
+      }
+    } catch (error) {
+      sendClientJson(client, { type: "error", message: error.message || "Could not read realtime response." });
+    }
+  });
+
+  upstream.on("close", () => client.close());
+  upstream.on("error", (error) => sendClientJson(client, { type: "error", message: error.message || "Volcengine realtime socket failed." }));
+  return { upstream, sessionId };
+}
+
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === "/api/health") {
@@ -778,7 +995,9 @@ async function handleApi(req, res) {
       azureConfigured: Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION),
       azureVoice,
       volcengineConfigured: Boolean(process.env.VOLCENGINE_TTS_APP_ID && (process.env.VOLCENGINE_TTS_ACCESS_KEY || process.env.VOLCENGINE_TTS_API_KEY || process.env.VOLCENGINE_TTS_ACCESS_TOKEN)),
+      volcengineRealtimeConfigured: Boolean(realtimeAppId && realtimeAccessToken),
       volcengineVoice,
+      realtimeSpeaker,
       ttsProvider: preferredTtsProvider()
     });
     return;
@@ -813,6 +1032,43 @@ async function sendStatic(req, res) {
   res.end(body);
 }
 
+const realtimeWss = new WebSocketServer({ noServer: true });
+
+realtimeWss.on("connection", (client) => {
+  let bridge = null;
+
+  client.on("message", async (data, isBinary) => {
+    if (isBinary) {
+      if (bridge?.upstream?.readyState === WebSocket.OPEN) {
+        bridge.upstream.send(volcMessage({
+          event: 200,
+          sessionId: bridge.sessionId,
+          payload: Buffer.from(data),
+          messageType: VOLC_CLIENT_AUDIO_REQUEST,
+          serialization: VOLC_NO_SERIALIZATION
+        }));
+      }
+      return;
+    }
+
+    let message = {};
+    try {
+      message = JSON.parse(String(data));
+    } catch {
+      sendClientJson(client, { type: "error", message: "Bad realtime control message." });
+      return;
+    }
+
+    if (message.type === "start" && !bridge) {
+      bridge = await startRealtimeBridge(client, message.context || {});
+    }
+  });
+
+  client.on("close", () => {
+    if (bridge?.upstream?.readyState === WebSocket.OPEN) bridge.upstream.close();
+  });
+});
+
 const server = createServer(async (req, res) => {
   try {
     if (req.url.startsWith("/api/")) {
@@ -827,6 +1083,18 @@ const server = createServer(async (req, res) => {
       details: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   }
+});
+
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname !== "/api/realtime") {
+    socket.destroy();
+    return;
+  }
+
+  realtimeWss.handleUpgrade(req, socket, head, (ws) => {
+    realtimeWss.emit("connection", ws, req);
+  });
 });
 
 server.listen(port, () => {
