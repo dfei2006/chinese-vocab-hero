@@ -12,12 +12,12 @@
         <div>
           <h1>Atlas 中文练习</h1>
         </div>
-        <button class="icon-button" id="adminToggleButton" type="button" title="家长设置" aria-label="家长设置" aria-controls="adminSettings" aria-expanded="false">⚙</button>
+        <button class="icon-button" id="adminToggleButton" type="button" title="家长设置" aria-label="家长设置">⚙</button>
       </header>
 
       <section class="status-strip" id="statusStrip" aria-live="polite"></section>
 
-      <section class="view active" id="uploadView" aria-label="导入词语表">
+      <section class="view active" id="uploadView" aria-label="家长设置">
         <div class="upload-zone">
           <div class="import-actions">
             <label class="primary-action">
@@ -25,8 +25,9 @@
               上传照片
             </label>
             <button class="secondary-action compact" id="manualButton" type="button">手动输入</button>
+            <button class="secondary-action compact" id="newBatchButton" type="button">新建词表</button>
           </div>
-          <section class="admin-settings hidden" id="adminSettings" aria-labelledby="adminSettingsTitle">
+          <section class="admin-settings" id="adminSettings" aria-labelledby="adminSettingsTitle">
             <h3 id="adminSettingsTitle">家长设置</h3>
             <label class="setting-field">
               <span>聊天人设</span>

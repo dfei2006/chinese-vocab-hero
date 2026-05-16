@@ -233,15 +233,17 @@ If you do not use Render, choose any host that supports:
 ## Daily Use
 
 1. Upload a clear photo of the worksheet if `ANTHROPIC_API_KEY` is set.
-2. Or tap **手动输入** if you want to type a short list yourself.
-3. Check every word and pinyin before starting.
-4. Tap **听一遍** if the kid wants to hear the word.
-5. Tap **按下录音**, say the word, then tap again to stop.
-6. The app checks the transcription and always reveals a sentence.
-7. After 3 correct words, the coach card lights up. Tap the coach card to start live voice chat.
-8. Tap **下一个** to continue.
+2. Each photo upload creates a new saved词表. It will not replace the active one.
+3. Or tap **手动输入** to edit/add to the current词表. Tap **新建词表** to start a separate manual list.
+4. Pick an old list under **以前的词语表**, or tap **从头练** on that list to restart it.
+5. Check every word and pinyin before starting.
+6. Tap **听一遍** if the kid wants to hear the word.
+7. Tap **按下录音**, say the word, then tap again to stop.
+8. The app checks the transcription and always reveals a sentence.
+9. After 3 correct words, the coach card lights up. Tap the coach card to start live voice chat.
+10. Tap **下一个** to continue.
 
-The gear button in the top right opens parent/admin settings for the coach persona and avatar.
+The top-right button toggles between parent/admin mode and the kid practice interface.
 
 ## Notes On Tone Accuracy
 

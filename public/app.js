@@ -17,6 +17,7 @@ const els = {
   adminToggleButton: document.querySelector("#adminToggleButton"),
   photoInput: document.querySelector("#photoInput"),
   manualButton: document.querySelector("#manualButton"),
+  newBatchButton: document.querySelector("#newBatchButton"),
   adminSettings: document.querySelector("#adminSettings"),
   personaInput: document.querySelector("#personaInput"),
   avatarInput: document.querySelector("#avatarInput"),
@@ -65,7 +66,6 @@ let mediaRecorder = null;
 let recordingChunks = [];
 let liveChat = null;
 let lastRenderedIndex = -1;
-let adminSettingsOpen = false;
 let capabilities = {
   openAiConfigured: false,
   anthropicConfigured: false,
@@ -154,24 +154,6 @@ function renderSettings() {
   }
 }
 
-function renderAdminSettings() {
-  els.adminSettings.classList.toggle("hidden", !adminSettingsOpen);
-  els.adminToggleButton.classList.toggle("active", adminSettingsOpen);
-  els.adminToggleButton.setAttribute("aria-expanded", String(adminSettingsOpen));
-}
-
-function toggleAdminSettings() {
-  if (state.view !== "upload") {
-    state.view = "upload";
-    saveState();
-    showView("upload");
-    adminSettingsOpen = true;
-  } else {
-    adminSettingsOpen = !adminSettingsOpen;
-  }
-  renderAdminSettings();
-}
-
 function setStatus(message) {
   els.statusStrip.textContent = message || "";
 }
@@ -187,6 +169,33 @@ function showView(name) {
   document.querySelector(`#${name}View`).classList.add("active");
   state.view = name;
   saveState();
+  renderModeToggle();
+}
+
+function isKidView() {
+  return state.view === "practice" || state.view === "done";
+}
+
+function renderModeToggle() {
+  const kidView = isKidView();
+  els.adminToggleButton.textContent = kidView ? "⚙" : "孩";
+  els.adminToggleButton.title = kidView ? "家长设置" : "儿童界面";
+  els.adminToggleButton.setAttribute("aria-label", kidView ? "家长设置" : "儿童界面");
+  els.adminToggleButton.classList.toggle("active", !kidView);
+}
+
+function toggleParentKidMode() {
+  if (isKidView()) {
+    showView("upload");
+    setStatus("");
+    return;
+  }
+  if (state.items.length) {
+    renderPractice();
+    showView("practice");
+  } else {
+    setStatus("还没有词表。先上传照片、选一个词表，或者手动输入。");
+  }
 }
 
 async function apiJson(path, payload) {
@@ -266,12 +275,14 @@ async function handlePhotoChange(event) {
     state.chatOpen = false;
     state.chatCredits = 0;
     state.chatHistory = [];
-    state.currentBatchId = saveCurrentBatch({ thumbnailDataUrl });
+    state.chatDialogId = null;
+    state.currentBatchId = null;
+    state.currentBatchId = saveCurrentBatch({ thumbnailDataUrl, createNew: true });
     saveState();
     renderSavedBatches();
     renderReview();
     showView("review");
-    setStatus(`找到 ${state.items.length} 个词。`);
+    setStatus(`已新建词表，找到 ${state.items.length} 个词。请先确认，再开始练习。`);
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -310,11 +321,11 @@ function batchTitle(items) {
   return words || "词语表";
 }
 
-function saveCurrentBatch({ thumbnailDataUrl } = {}) {
+function saveCurrentBatch({ thumbnailDataUrl, createNew = false } = {}) {
   const items = batchItemsFromState();
   if (!items.length) return state.currentBatchId || null;
 
-  const id = state.currentBatchId || crypto.randomUUID();
+  const id = createNew ? crypto.randomUUID() : state.currentBatchId || crypto.randomUUID();
   const existing = batches.find((batch) => batch.id === id);
   const savedBatch = {
     id,
@@ -334,21 +345,31 @@ function renderSavedBatches() {
   els.batchList.innerHTML = "";
   els.savedBatchesSection.classList.toggle("hidden", !batches.length);
   for (const batch of batches) {
-    const button = document.createElement("button");
-    button.className = "batch-card";
-    button.type = "button";
+    const card = document.createElement("article");
+    card.className = `batch-card${batch.id === state.currentBatchId ? " active" : ""}`;
+    const openButton = document.createElement("button");
+    openButton.className = "batch-open";
+    openButton.type = "button";
     const thumb = batch.thumbnailDataUrl
       ? `<img class="batch-thumb" src="${batch.thumbnailDataUrl}" alt="">`
       : `<div class="batch-thumb placeholder" aria-hidden="true">词</div>`;
-    button.innerHTML = `
+    openButton.innerHTML = `
       ${thumb}
       <span class="batch-copy">
         <strong>${escapeHtml(batch.title)}</strong>
-        <span>${batch.count || batch.items?.length || 0} 个词</span>
+        <span>${batch.count || batch.items?.length || 0} 个词${batch.id === state.currentBatchId ? " · 当前" : ""}</span>
       </span>
     `;
-    button.addEventListener("click", () => openBatch(batch.id));
-    els.batchList.append(button);
+    openButton.addEventListener("click", () => openBatch(batch.id));
+
+    const restartButton = document.createElement("button");
+    restartButton.className = "batch-reset";
+    restartButton.type = "button";
+    restartButton.textContent = "从头练";
+    restartButton.addEventListener("click", () => restartBatch(batch.id));
+
+    card.append(openButton, restartButton);
+    els.batchList.append(card);
   }
 }
 
@@ -366,6 +387,14 @@ function openBatch(batchId) {
   renderReview();
   showView("review");
   setStatus(`已打开 ${batch.count || batch.items.length} 个词。`);
+}
+
+function restartBatch(batchId) {
+  openBatch(batchId);
+  const batch = batches.find((entry) => entry.id === batchId);
+  if (!batch) return;
+  startPractice();
+  setStatus(`已从头开始：${batch.title}。`);
 }
 
 function renderReview() {
@@ -1139,15 +1168,6 @@ function restartPractice() {
   showView("practice");
 }
 
-function resetAll() {
-  localStorage.removeItem(storageKey);
-  state = freshState();
-  lastRenderedIndex = -1;
-  renderSavedBatches();
-  showView("upload");
-  setStatus(capabilities.languageProvider === "local" ? "没有 Anthropic/OpenAI API key：照片识别先不可用，但可以手动输入练习。" : "");
-}
-
 function addWordRow() {
   state.items.push({
     id: crypto.randomUUID(),
@@ -1169,7 +1189,19 @@ function startManualEntry() {
   state.currentBatchId = state.currentBatchId || null;
   renderReview();
   showView("review");
-  setStatus("");
+  setStatus(state.currentBatchId ? "正在编辑当前词表。" : "正在编辑新的手动词表。");
+}
+
+function startNewBatch() {
+  state = {
+    ...freshState(),
+    view: "review",
+    items: []
+  };
+  lastRenderedIndex = -1;
+  addWordRow();
+  showView("review");
+  setStatus("已新建手动词表。");
 }
 
 function startPractice() {
@@ -1197,8 +1229,9 @@ function startPractice() {
 }
 
 els.photoInput.addEventListener("change", handlePhotoChange);
-els.adminToggleButton.addEventListener("click", toggleAdminSettings);
+els.adminToggleButton.addEventListener("click", toggleParentKidMode);
 els.manualButton.addEventListener("click", startManualEntry);
+els.newBatchButton.addEventListener("click", startNewBatch);
 els.personaInput.addEventListener("input", () => {
   settings.personaPrompt = els.personaInput.value.trim() || defaultCoachPersona;
   saveSettings();
@@ -1248,7 +1281,6 @@ els.wordStage.addEventListener("keydown", (event) => {
 async function init() {
   await refreshCapabilities();
   renderSettings();
-  renderAdminSettings();
   renderSavedBatches();
   if (state.items.length && state.view === "review") {
     renderReview();
