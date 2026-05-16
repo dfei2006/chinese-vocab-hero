@@ -85,6 +85,25 @@ h1 {
   font-weight: 900;
 }
 
+.brand-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.brand-main {
+  font-size: clamp(1.25rem, 3.4vw, 1.55rem);
+}
+
+.brand-sub {
+  padding-left: 10px;
+  border-left: 1px solid rgba(22, 33, 50, 0.18);
+  color: #26354b;
+  font-size: clamp(1.02rem, 3vw, 1.28rem);
+  font-weight: 850;
+}
+
 h2 {
   font-size: clamp(1.35rem, 5vw, 2rem);
   line-height: 1.1;
@@ -764,6 +783,14 @@ h2 {
   .icon-button {
     min-width: 52px;
     height: 42px;
+  }
+
+  .brand-title {
+    gap: 7px;
+  }
+
+  .brand-sub {
+    padding-left: 8px;
   }
 
   .status-strip {
